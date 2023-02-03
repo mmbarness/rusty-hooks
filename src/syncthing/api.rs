@@ -1,7 +1,7 @@
-use std::{error, fmt};
+use std::{error, fmt::{self}, str::FromStr};
 use serde::{ Deserialize, Serialize };
 
-use super::{event_structs::{ SyncthingEvent }, client};
+use super::{event_structs::{ SyncthingEvent, EventTypes }, client};
 
 #[derive(Debug, Clone, Serialize, Deserialize,)]
 struct SyncthingError;
@@ -14,11 +14,13 @@ impl fmt::Display for SyncthingError {
 
 impl error::Error for SyncthingError {}
 
-pub type Error = Box<dyn std::error::Error + Send + Sync>;
+pub type SyncthingApiError = Box<dyn std::error::Error + Send + Sync>;
 
+#[derive(Debug, Clone)]
 pub struct SyncthingApi {
     pub client: reqwest::Client,
-    pub seen: Vec<String>,
+    pub seen: Vec<u16>,
+    pub last_seen: Option<u16>,
 }
 
 impl SyncthingApi {
@@ -27,29 +29,51 @@ impl SyncthingApi {
         SyncthingApi {
             client: client::Client { auth_key: "oauUuuTMbTspjiKY5jyVnrh5Lf3a23Sj".to_string() }.new(),
             seen: [].to_vec(),
+            last_seen: None,
         }
     }
 
-    pub async fn fetch_events(&self) -> Result<Vec<SyncthingEvent>, Error> {
-        let json_str = match self.client.get("http://localhost:8384/rest/events").send().await {
-            Ok(valid_response) => valid_response.text().await?,
+    pub fn update_seen(&mut self, events: &Vec<SyncthingEvent>) -> &self::SyncthingApi {
+        let mut existing_seen_ids = self.seen.clone();
+        let mut new_ids = self.map_ids(events).clone();
+        
+        let compiled_ids:Vec<u16> = self.merge_ids(&mut existing_seen_ids, &mut new_ids);
+        let compiled_ids_len = compiled_ids.len();
+
+        let trimmed_and_compiled = match compiled_ids_len > 100 {
+            true => {
+                println!("all seen ids are of length: {}, cutting seen down to size", compiled_ids_len);
+                let to_slice = compiled_ids.as_slice();
+                let (_, trimmed) = to_slice.split_at(compiled_ids_len - 100);
+                trimmed.to_vec()
+            },
+            false => compiled_ids
+        };
+
+        self.last_seen = trimmed_and_compiled.last().copied();
+        self.seen = trimmed_and_compiled;
+
+        self
+    }
+
+    pub async fn update(&mut self) -> Result<&self::SyncthingApi, SyncthingApiError> {
+        let new_events = match self.fetch_events().await {
+            Ok(events) => events,
             Err(e) => {
-                let msg = e.to_string();
-                println!("error converting resp to string, {}", msg);
-                return Err(msg.into())
+                let error_msg = e.to_string();
+                return Err(error_msg.into())
             }
         };
-    
-        let json_data:Vec<SyncthingEvent> = match serde_json::from_str::<Vec<SyncthingEvent>>(&json_str) {
-            Ok(event_json) => event_json,
+
+        let local_index_updated_event = match EventTypes::from_str("LocalIndexUpdated") {
+            Ok(event_type) => event_type,
             Err(e) => {
-                let msg = e.to_string();
-                println!("json str: {}", json_str);
-                println!("error converting resp to json, {}", msg);
-                return Err(msg.into())
+                return Err(e.into())
             }
         };
-    
-        Ok(json_data)
+
+        let local_index_updated_events = self.filter_events(&new_events, &local_index_updated_event);
+
+        Ok(self.update_seen(&local_index_updated_events))
     }
 }
