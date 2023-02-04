@@ -1,33 +1,35 @@
-use std::{error, fmt::{self}, str::FromStr};
-use serde::{ Deserialize, Serialize };
+use std::{str::FromStr};
 
-use super::{event_structs::{ SyncthingEvent, EventTypes }, client};
-
-#[derive(Debug, Clone, Serialize, Deserialize,)]
-struct SyncthingError;
-
-impl fmt::Display for SyncthingError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Error while talking to syncthing")
-    }
-}
-
-impl error::Error for SyncthingError {}
-
-pub type SyncthingApiError = Box<dyn std::error::Error + Send + Sync>;
+use super::{
+    event_structs::{
+        SyncthingEvent,
+        EventTypes
+    },
+    client::{
+        self,
+        Client
+    },
+    errors::{
+        SyncthingError,
+        EventTypesError
+    },
+    configs::Configs
+};
 
 #[derive(Debug, Clone)]
 pub struct SyncthingApi {
-    pub client: reqwest::Client,
+    pub client: Client,
+    pub configs: Configs,
     pub seen: Vec<u16>,
     pub last_seen: Option<u16>,
 }
 
 impl SyncthingApi {
     
-    pub fn new () -> self::SyncthingApi {
+    pub fn new (configs: Configs) -> self::SyncthingApi {
         SyncthingApi {
-            client: client::Client { auth_key: "oauUuuTMbTspjiKY5jyVnrh5Lf3a23Sj".to_string() }.new(),
+            client: client::Client::new(&configs.auth_key, &configs.address, &configs.port),
+            configs,
             seen: [].to_vec(),
             last_seen: None,
         }
@@ -56,23 +58,17 @@ impl SyncthingApi {
         self
     }
 
-    pub async fn update(&mut self) -> Result<&self::SyncthingApi, SyncthingApiError> {
-        let new_events = match self.fetch_events().await {
-            Ok(events) => events,
-            Err(e) => {
-                let error_msg = e.to_string();
-                return Err(error_msg.into())
-            }
-        };
+    pub async fn update(&mut self) -> Result<&self::SyncthingApi, SyncthingError> {
+        let new_events = self.fetch_events().await?;
 
         let local_index_updated_event = match EventTypes::from_str("LocalIndexUpdated") {
             Ok(event_type) => event_type,
-            Err(e) => {
-                return Err(e.into())
-            }
+            Err(e) => return Err(EventTypesError::ParseString(e).into())
         };
 
         let local_index_updated_events = self.filter_events(&new_events, &local_index_updated_event);
+
+        let most_recent_folder_state = self.examine_folder_summary(&new_events)?;
 
         Ok(self.update_seen(&local_index_updated_events))
     }

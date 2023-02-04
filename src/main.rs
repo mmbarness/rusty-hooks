@@ -1,3 +1,7 @@
+#![feature(provide_any)]
+#![feature(error_generic_member_access)]
+#![feature(trait_alias)]
+use syncthing::configs;
 use tokio::{ time };
 
 mod syncthing;
@@ -17,7 +21,14 @@ async fn main() {
 async fn poll() {
     match tokio::spawn(async move {
         let mut interval = time::interval(time::Duration::from_secs(30));
-        let mut syncthing_api = syncthing::api::SyncthingApi::new();
+        let configs = match configs::Configs::load() {
+            Ok(c) => c,
+            Err(e) => {
+                println!("error loading configs: {}", e.to_string());
+                panic!()
+            }
+        };
+        let mut syncthing_api = syncthing::api::SyncthingApi::new(configs);
         loop {
             println!("polling...");
             match syncthing_api.update().await {

@@ -136,21 +136,50 @@ pub struct FolderScanProgress {
 #[allow(non_snake_case)]
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct FolderSummary {
-    pub globalBytes: u16,
-    pub globalDeleted: u16,
-    pub globalFiles: u16,
+    pub folder: String,
+    pub summary: Summary,
+}
+
+
+#[allow(non_snake_case)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct Summary {
+    pub error: String,
+    pub errors: u16,
+    pub globalBytes: u32,
+    pub globalDeleted: u32,
+    pub globalDirectories: u8,
+    pub globalFiles: u8,
+    pub globalSymlinks: u16,
+    pub globalTotalItems: u32,
     pub ignorePatterns: bool,
-    pub inSyncBytes: u16,
-    pub inSyncFiles: u16,
+    pub inSyncBytes: u32,
+    pub inSyncFiles: u8,
     pub invalid: String,
-    pub localBytes: u16,
-    pub localDeleted: u16,
-    pub localFiles: u16,
+    pub localBytes: u32,
+    pub localDeleted: u32,
+    pub localDirectories: u8,
+    pub localFiles: u8,
+    pub localSymlinks: u16,
+    pub localTotalItems: u32,
     pub needBytes: u16,
+    pub needDeletes: u16,
+    pub needDirectories: u16,
     pub needFiles: u16,
+    pub needSymlinks: u16,
+    pub needTotalItems: u16,
+    pub pullErrors: u16,
+    pub receiveOnlyChangedBytes: u16,
+    pub receiveOnlyChangedDeletes: u16,
+    pub receiveOnlyChangedDirectories: u16,
+    pub receiveOnlyChangedFiles: u16,
+    pub receiveOnlyChangedSymlinks: u16,
+    pub receiveOnlyTotalItems: u16,
+    pub sequence: u16,
     pub state: String,
     pub stateChanged: String,
-    pub version: u16
+    pub version: u16,
+    pub watchError: String
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -312,6 +341,13 @@ pub struct StateChanged {
 }
 
 pub type Unknown = HashMap<String, Value>;
+
+#[derive(Debug, EnumString)]
+#[strum(serialize_all = "lowercase")]
+pub enum FolderState {
+    Idle,
+    Syncing,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, AsRefStr, EnumString)]
 #[serde(untagged)]
