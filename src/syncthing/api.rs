@@ -1,4 +1,5 @@
 use std::{str::FromStr};
+use crate::syncthing::logger::{Logger, InfoLogging};
 
 use super::{
     event_structs::{
@@ -13,7 +14,7 @@ use super::{
         SyncthingError,
         EventTypesError
     },
-    configs::Configs
+    configs::Configs, logger::DebugLogging
 };
 
 #[derive(Debug, Clone)]
@@ -44,7 +45,7 @@ impl SyncthingApi {
 
         let trimmed_and_compiled = match compiled_ids_len > 100 {
             true => {
-                println!("all seen ids are of length: {}, cutting seen down to size", compiled_ids_len);
+                Logger::log_info_string(&format!("all seen ids are of length: {}, cutting seen down to size", compiled_ids_len));
                 let to_slice = compiled_ids.as_slice();
                 let (_, trimmed) = to_slice.split_at(compiled_ids_len - 100);
                 trimmed.to_vec()
@@ -67,6 +68,13 @@ impl SyncthingApi {
         };
 
         let local_index_updated_events = self.filter_events(&new_events, &local_index_updated_event);
+
+        match local_index_updated_events.last() {
+            Some(event) => {
+                Logger::log_debug_string(&format!("found new event of type LocalIndexUpdated: {}", serde_json::to_string_pretty(&event).unwrap()));
+            }, 
+            None => {}
+        }
 
         let most_recent_folder_state = self.examine_folder_summary(&new_events)?;
 

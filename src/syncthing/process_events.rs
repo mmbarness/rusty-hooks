@@ -11,6 +11,7 @@ use super::{
         EventTypes, FolderState
     }
 };
+use crate::syncthing::logger::{Logger, DebugLogging};
 
 impl SyncthingApi {
 
@@ -62,7 +63,7 @@ impl SyncthingApi {
     pub fn filter_events(&self, all_events: &Vec<SyncthingEvent>, event_type: &EventTypes) -> Vec<SyncthingEvent> {
         let binding = event_type.clone();
         let event_type_str = binding.as_ref();
-        println!("filtering for events of type: {}", event_type_str);
+        Logger::log_debug_string(&format!("filtering for events of type: {}", event_type_str));
         all_events
             .into_iter()
             .filter(|event| event.r#type == event_type_str)

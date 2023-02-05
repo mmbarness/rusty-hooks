@@ -1,5 +1,7 @@
 use reqwest::header;
 
+use crate::syncthing::logger::{Logger, InfoLogging, ErrorLogging};
+
 use super::errors::SyncthingError;
 #[derive(Debug, Clone)]
 pub struct Client {
@@ -12,8 +14,7 @@ impl Client {
         let headers = Self::auth_header(auth_key);
 
         let full_address = format!("{}:{}", address, port);
-
-        println!("full syncthing address: {}", full_address);
+        Logger::log_info_string(&format!("using address: {}", full_address));
 
         match reqwest::Client::builder()
             .default_headers(headers)
@@ -23,7 +24,8 @@ impl Client {
                     reqwester: c,
                 },
                 Err(_) => {
-                    panic!("error building reqwest client");
+                    Logger::log_error_string(&"error building reqwest client".to_string());
+                    panic!();
                 }
             }
     }
@@ -32,7 +34,8 @@ impl Client {
         let api_key_header_val = match header::HeaderValue::from_str(validated_auth_key) {
             Ok(v) => v,
             Err(_e) => {
-                panic!("error parsing api key while initiating Client struct")
+                Logger::log_error_string(&"error parsing api key while initiating Client struct".to_string());
+                panic!()
             }
         };
         let mut headers = header::HeaderMap::new();
