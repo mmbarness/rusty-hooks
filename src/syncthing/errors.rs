@@ -39,6 +39,8 @@ impl fmt::Display for SyncthingError {
                 write!(f, "error making http request via reqwest: {}", e.to_string()),
             SyncthingError::SerdeError(e) => 
                 write!(f, "error converting resp json into structs: {}", e.to_string()),
+            SyncthingError::SpawnError(e) => 
+                write!(f, "error spawning process: {}", e.to_string()),
         }
     }
 }
@@ -67,13 +69,18 @@ impl From<reqwest::Error> for SyncthingError {
     }
 }
 
+impl From<std::io::Error> for SyncthingError {
+    fn from(value:std::io::Error) -> Self {
+        SyncthingError::SpawnError(value)
+    }
+}
+
 impl error::Error for SyncthingError {}
 
 impl FromStr for SyncthingError {
     fn from_str(s: &str) -> Result<SyncthingError, SyncthingError> {
         Ok(SyncthingError::GenericMessage(s.to_string()))
     }
-
     type Err = SyncthingError;
 }
 
@@ -86,5 +93,6 @@ pub enum SyncthingError {
     NoNewEvents,
     ParseError(ParseError),
     ReqwestError(reqwest::Error),
-    SerdeError(serde_json::Error)
+    SerdeError(serde_json::Error),
+    SpawnError(std::io::Error)
 }

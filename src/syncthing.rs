@@ -5,3 +5,4 @@ pub mod client;
 pub mod event_structs;
 pub mod logger;
 pub mod process_events;
+pub mod spawn_script;

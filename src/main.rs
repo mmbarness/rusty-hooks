@@ -35,8 +35,7 @@ async fn poll() {
             match syncthing_api.update().await {
                 Ok(events) => events,
                 Err(e) => {
-                    let message = e.to_string();
-                    error!("{}", message);
+                    error!("{}", e.to_string());
                     return;
                 }
             };

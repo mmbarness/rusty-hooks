@@ -13,6 +13,7 @@ pub struct Configs {
     pub address: Address,
     pub request_interval: RequestInterval,
     pub script_delay: ScriptDelay,
+    pub scripts_path: ScriptsPath,
 }
 
 #[derive(Debug, Error)]
@@ -35,6 +36,7 @@ enum ConfigValues {
     Address(Address),
     RequestInterval(RequestInterval),
     ScriptDelay(ScriptDelay),
+    ScriptPath(ScriptsPath),
 }
 
 pub type AuthKey = String;
@@ -42,6 +44,7 @@ pub type Port = u16;
 pub type Address = String;
 pub type RequestInterval = u64;
 pub type ScriptDelay = u8;
+pub type ScriptsPath = String;
 
 pub trait ConfigValue {}
 
@@ -91,12 +94,22 @@ impl Configs {
             }
         };
 
+        let scripts_path = match Self::get_var( "SCRIPTS_PATH".to_string())? {
+            Some(ConfigValues::ScriptPath(c)) => c,
+            Some(_) => return Err(ConfigError::ParseError("error parsing request interval from .env file, please check it and try again".to_string())),
+            None => {
+                Logger::log_info_string(&"didn\'t find a configured scripts path in .env, using default of ../scripts".to_string());
+                "../scripts".to_string()
+            }
+        };
+
         Ok(Configs {
             address,
             auth_key,
             port,
             request_interval,
-            script_delay
+            script_delay,
+            scripts_path,
         })
     }
 
@@ -132,6 +145,7 @@ impl Configs {
             ConfigValues::Port(_) => Ok(Some(ConfigValues::Port(valid_var.parse::<u16>()?))),
             ConfigValues::RequestInterval(_) => Ok(Some(ConfigValues::RequestInterval(valid_var.parse::<u64>()?))),
             ConfigValues::ScriptDelay(_) => Ok(Some(ConfigValues::ScriptDelay(valid_var.parse::<u8>()?))),
+            ConfigValues::ScriptPath(_) => Ok(Some(ConfigValues::ScriptPath(valid_var))),
         }
 
     }
