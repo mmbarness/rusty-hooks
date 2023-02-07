@@ -98,8 +98,8 @@ impl Configs {
             Some(ConfigValues::ScriptPath(c)) => c,
             Some(_) => return Err(ConfigError::ParseError("error parsing request interval from .env file, please check it and try again".to_string())),
             None => {
-                Logger::log_info_string(&"didn\'t find a configured scripts path in .env, using default of ../scripts".to_string());
-                "../scripts".to_string()
+                Logger::log_info_string(&"didn\'t find a configured scripts path in .env, using default of scripts/".to_string());
+                "scripts/".to_string()
             }
         };
 

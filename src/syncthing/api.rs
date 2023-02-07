@@ -14,7 +14,7 @@ use super::{
         SyncthingError,
         EventTypesError
     },
-    configs::Configs, logger::DebugLogging
+    configs::Configs, logger::DebugLogging, spawn_script::{Spawn, Scripts}
 };
 
 #[derive(Debug, Clone)]
@@ -28,6 +28,7 @@ pub struct SyncthingApi {
 impl SyncthingApi {
     
     pub fn new (configs: Configs) -> self::SyncthingApi {
+        <Scripts as Spawn>::run(&configs.scripts_path);
         SyncthingApi {
             client: client::Client::new(&configs.auth_key, &configs.address, &configs.port),
             configs,

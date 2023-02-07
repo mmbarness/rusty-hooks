@@ -540,6 +540,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "is_executable"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa9acdc6d67b75e626ad644734e8bc6df893d9cd2a834129065d3dd6158ea9c8"
+dependencies = [
+ "winapi",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -887,6 +896,7 @@ dependencies = [
  "dotenv",
  "env_logger",
  "futures",
+ "is_executable",
  "log",
  "reqwest",
  "serde",
@@ -894,6 +904,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "thiserror",
+ "threadpool",
  "timer",
  "tokio",
 ]
@@ -1096,6 +1107,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "threadpool"
+version = "1.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d050e60b33d41c19108b32cea32164033a9013fe3b46cbd4457559bfbf77afaa"
+dependencies = [
+ "num_cpus",
 ]
 
 [[package]]

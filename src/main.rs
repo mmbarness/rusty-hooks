@@ -1,6 +1,7 @@
 #![feature(provide_any)]
 #![feature(error_generic_member_access)]
 #![feature(trait_alias)]
+#![feature(async_closure)]
 use syncthing::{configs, logger::{Logger, ErrorLogging}};
 use tokio::{ time };
 use log::{error, info};
