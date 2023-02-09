@@ -1,18 +1,23 @@
-use std::{process::{Command, Child}, fs::{self, DirEntry, ReadDir}, str::FromStr, thread::{self, JoinHandle, Thread}, time::Duration, sync::{mpsc::channel, Mutex, Arc}};
+use std::{process::{Command, Child}, fs::{self, DirEntry, ReadDir}, str::FromStr, thread::{self, JoinHandle, Thread}, time::Duration, sync::{mpsc::channel, Mutex, Arc}, collections::HashMap, fmt};
 use log::{info, debug};
 use is_executable::IsExecutable;
 use serde::Deserialize;
+use strum::ParseError;
 use threadpool::ThreadPool;
-use super::errors::SyncthingError;
+use super::{errors::SyncthingError, event_structs::EventTypes};
 
 #[derive(Debug)]
 pub struct Scripts {
-    files: Vec<ScriptSchema>,
-    threads: Vec<JoinHandle<Result<Child, ScriptsError>>>,
+    scripts_by_event_triggers: ScriptsByEventTrigger,
+    threads: Option<Vec<JoinHandle<Result<Child, ScriptsError>>>>,
 }
 
+type EventString = String;
+type ScriptId = String;
+type ScriptsByEventTrigger = HashMap<EventString, Vec<ScriptSchema>>; // string identifies the event type, Vec<ScriptSchemas> are all scripts that should run on a given event
+
 impl Scripts {
-    pub fn ingest_configs() -> Result<Vec<ScriptSchema>, ScriptsError> {
+    pub fn ingest_configs() -> Result<Self, ScriptsError> {
         let configs_file = fs::read_to_string("./scripts/scripts_config.json")?;
 
         let files = serde_json::from_str::<Vec<ScriptSchema>>(&configs_file)?;
@@ -22,34 +27,91 @@ impl Scripts {
                 return valid_so_far
             }
             let path = format!("./scripts/{}", current.file_name.clone());
+            info!("path of identified script: {}", path);
             is_executable::is_executable(path)
         }) {
             true => {},
             false => return Err(ScriptsError::GenericMessage("unable to validate scripts folder".to_string())),
         }
+        let acc_int:ScriptsByEventTrigger = HashMap::new();
+        let scripts_by_event_triggers = files.clone().into_iter().fold(acc_int, |mut scripts_by_event_type_acc, current| {
+            let current_file_path = &current.file_name;
+            let mut current_event_triggers = &current.event_triggers;
+            let event_schemas:ScriptsByEventTrigger = HashMap::new();
+            let updated_acc = current_event_triggers.into_iter().fold(event_schemas, |mut _acc, event| {
+                let event_type = event.clone();
+                let event_schemas = match scripts_by_event_type_acc.get_mut(&event_type) {
+                    Some(acc_event_type_scripts) => {
+                        let addition_needed = match acc_event_type_scripts.into_iter().find(|script| {
+                            match &current.file_name.eq_ignore_ascii_case(&script.file_name) {
+                                true => false,
+                                false => true
+                            }
+                        }) {
+                            Some(_) => false,
+                            None => true,
+                        };
 
-        Ok(files)
+                        match addition_needed {
+                            true => {
+                                acc_event_type_scripts.push(current.clone());
+                                acc_event_type_scripts.clone()
+                            }
+                            false => {
+                                acc_event_type_scripts.clone()
+                            }
+                        }
+                    },
+                    None => {
+                        // insert current into accumulator
+                        let mut accumulator_copy= scripts_by_event_type_acc.clone();
+                        let mut event_type_and_schema_to_insert = vec![current.clone()];
+                        accumulator_copy.insert(event_type.clone(), event_type_and_schema_to_insert.clone());
+                        // accumulator_copy
+                        event_type_and_schema_to_insert
+                    }
+                };
+                _acc.insert(event_type.clone(), event_schemas);
+                _acc
+            });
+            updated_acc
+        });
+
+        Ok(Scripts{
+            scripts_by_event_triggers,
+            threads: None
+        })
     }
 
-    pub fn start(files:Vec<ScriptSchema>) -> Result<Self, ScriptsError> {
-        let threads:Vec<JoinHandle<Result<Child, ScriptsError>>> = files.iter().clone().map(move |file| {
-            let file_arc = Arc::new(file.clone());
-            thread::spawn(move ||{
-                let frequency = file_arc.execution_frequency.clone();
-                let path = file_arc.file_name.clone();
+    pub fn run_event(&self, event_type: String) -> Result<Option<Vec<JoinHandle<Result<Child, ScriptsError>>>>, ScriptsError> {
+        info!("attempting to run event of type: {}", event_type);
+        let validated_event = match EventTypes::from_str(&event_type) {
+            Ok(event) => event,
+            Err(e) => {
+                return Err(SpawnError::ParseError(e).into())
+            }
+        };
+
+        let event_scripts = match self.scripts_by_event_triggers.get(validated_event.as_ref()) {
+            Some(scripts) => scripts.clone(),
+            None => return Ok(None)
+        };
+
+        info!("found {} events to run for type {}", event_scripts.len(), event_type);
+
+        let threads:Vec<JoinHandle<Result<Child, ScriptsError>>> = event_scripts.iter().clone().map(move |script| {
+            let file_arc = Arc::new(script.clone());
+            thread::spawn(move || {
+                let path = format!("./scripts/{}", file_arc.file_name);
                 let process = match Self::run(&path) {
                     Ok(child) => Ok(child),
                     Err(e) => Err(e)
                 };
-                thread::sleep(Duration::from_millis(frequency));
                 process
             })
         }).collect();
 
-        Ok(Scripts{
-            files,
-            threads,
-        })
+        Ok(Some(threads))
     }
 }
 
@@ -69,9 +131,8 @@ impl FromStr for ScriptsError {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct ScriptSchema {
-    execution_frequency: u64,
+    event_triggers: Vec<String>,
     file_name: String,
-    run_delay: u8,
     failed: Option<bool>
 }
 
@@ -81,6 +142,23 @@ pub enum ScriptsError {
     JsonError(serde_json::Error),
     SpawnError(SpawnError),
     GenericMessage(String),
+}
+
+impl fmt::Display for ScriptsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ScriptsError::ConfigsError => 
+                write!(f, "error parsing event types as string"),
+            ScriptsError::IoError(e) => 
+                write!(f, "error parsing event types as string: {}", e),
+            ScriptsError::JsonError(e) => 
+                write!(f, "error parsing event types as a string: {}", e),
+            ScriptsError::SpawnError(e) => 
+                write!(f, "error parsing event types as a string: {}", e),
+            ScriptsError::GenericMessage(e) => 
+                write!(f, "error parsing event types as a string: {}", e)
+        }
+    }
 }
 
 impl From<serde_json::Error> for ScriptsError {
@@ -97,12 +175,32 @@ impl From<SpawnError> for ScriptsError {
 
 pub enum SpawnError {
     IoError(std::io::Error),
-    ReadError()
+    ReadError(),
+    ParseError(ParseError)
+}
+
+impl fmt::Display for SpawnError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SpawnError::IoError(e) => 
+                write!(f, "error parsing event types as string"),
+            SpawnError::ReadError() => 
+                write!(f, "error parsing event types as string"),
+            SpawnError::ParseError(e) => 
+                write!(f, "error parsing event types as a string: {}", e)
+        }
+    }
 }
 
 impl From<std::io::Error> for SpawnError {
     fn from(value:std::io::Error) -> Self {
         SpawnError::IoError(value)
+    }
+}
+
+impl From<ParseError> for SpawnError {
+    fn from(value: ParseError) -> Self {
+        SpawnError::ParseError(value)
     }
 }
 

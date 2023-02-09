@@ -28,7 +28,6 @@ pub struct SyncthingApi {
 impl SyncthingApi {
     
     pub fn new (configs: Configs) -> self::SyncthingApi {
-        <Scripts as Spawn>::run(&configs.scripts_path);
         SyncthingApi {
             client: client::Client::new(&configs.auth_key, &configs.address, &configs.port),
             configs,
@@ -60,7 +59,7 @@ impl SyncthingApi {
         self
     }
 
-    pub async fn update(&mut self) -> Result<&self::SyncthingApi, SyncthingError> {
+    pub async fn update(&mut self) -> Result<(&self::SyncthingApi, Vec<SyncthingEvent>), SyncthingError> {
         let new_events = self.fetch_events().await?;
 
         let local_index_updated_event = match EventTypes::from_str("LocalIndexUpdated") {
@@ -79,6 +78,6 @@ impl SyncthingApi {
 
         let most_recent_folder_state = self.examine_folder_summary(&new_events)?;
 
-        Ok(self.update_seen(&local_index_updated_events))
+        Ok((self.update_seen(&local_index_updated_events), local_index_updated_events))
     }
 }
