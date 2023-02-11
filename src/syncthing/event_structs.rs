@@ -140,45 +140,59 @@ pub struct FolderSummary {
     pub summary: Summary,
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(untagged)]
+pub enum Numbers {
+    U8(u8),
+    U16(u16),
+    U32(u32),
+}
+
+impl Default for Numbers {
+    fn default() -> Self {
+        Numbers::U8(0)
+    }
+}
+
 
 #[allow(non_snake_case)]
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Summary {
     pub error: String,
-    pub errors: u16,
-    pub globalBytes: u32,
-    pub globalDeleted: u32,
-    pub globalDirectories: u8,
-    pub globalFiles: u8,
-    pub globalSymlinks: u16,
-    pub globalTotalItems: u32,
+    pub errors: Numbers,
+    pub globalBytes: Numbers,
+    pub globalDeleted: Numbers,
+    pub globalDirectories: Numbers,
+    pub globalFiles: Numbers,
+    pub globalSymlinks: Numbers,
+    pub globalTotalItems: Numbers,
     pub ignorePatterns: bool,
-    pub inSyncBytes: u32,
-    pub inSyncFiles: u8,
+    pub inSyncBytes: Numbers,
+    pub inSyncFiles: Numbers,
     pub invalid: String,
-    pub localBytes: u32,
-    pub localDeleted: u32,
-    pub localDirectories: u8,
-    pub localFiles: u8,
-    pub localSymlinks: u16,
-    pub localTotalItems: u32,
-    pub needBytes: u16,
-    pub needDeletes: u16,
-    pub needDirectories: u16,
-    pub needFiles: u16,
-    pub needSymlinks: u16,
-    pub needTotalItems: u16,
-    pub pullErrors: u16,
-    pub receiveOnlyChangedBytes: u16,
-    pub receiveOnlyChangedDeletes: u16,
-    pub receiveOnlyChangedDirectories: u16,
-    pub receiveOnlyChangedFiles: u16,
-    pub receiveOnlyChangedSymlinks: u16,
-    pub receiveOnlyTotalItems: u16,
-    pub sequence: u16,
+    pub localBytes: Numbers,
+    pub localDeleted: Numbers,
+    pub localDirectories: Numbers,
+    pub localFiles: Numbers,
+    pub localSymlinks: Numbers,
+    pub localTotalItems: Numbers,
+    pub needBytes: Numbers,
+    pub needDeletes: Numbers,
+    pub needDirectories: Numbers,
+    pub needFiles: Numbers,
+    pub needSymlinks: Numbers,
+    pub needTotalItems: Numbers,
+    pub pullErrors: Numbers,
+    pub receiveOnlyChangedBytes: Numbers,
+    pub receiveOnlyChangedDeletes: Numbers,
+    pub receiveOnlyChangedDirectories: Numbers,
+    pub receiveOnlyChangedFiles: Numbers,
+    pub receiveOnlyChangedSymlinks: Numbers,
+    pub receiveOnlyTotalItems: Numbers,
+    pub sequence: Numbers,
     pub state: String,
     pub stateChanged: String,
-    pub version: u16,
+    pub version: Numbers,
     pub watchError: String
 }
 

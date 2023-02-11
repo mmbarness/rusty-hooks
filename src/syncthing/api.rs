@@ -14,7 +14,7 @@ use super::{
         SyncthingError,
         EventTypesError
     },
-    configs::Configs, logger::DebugLogging, spawn_script::{Spawn, Scripts}
+    configs::Configs, logger::DebugLogging,
 };
 
 #[derive(Debug, Clone)]
@@ -75,8 +75,6 @@ impl SyncthingApi {
             }, 
             None => {}
         }
-
-        let most_recent_folder_state = self.examine_folder_summary(&new_events)?;
 
         Ok((self.update_seen(&local_index_updated_events), local_index_updated_events))
     }

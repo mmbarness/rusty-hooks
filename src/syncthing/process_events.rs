@@ -1,6 +1,8 @@
 use std::{
     str::FromStr
 };
+use log::{info, debug};
+
 use super::{
     api::{
         SyncthingApi,
@@ -42,6 +44,7 @@ impl SyncthingApi {
                 }
             },
             _ => {
+                debug!("{:?}", serde_json::to_string_pretty(&last_folder_summary.data));
                 let parse_error_message = "error validating FolderSummary after filtering".to_string();
                 return Err(SyncthingError::GenericMessage(parse_error_message))
             }
