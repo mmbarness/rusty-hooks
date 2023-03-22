@@ -1,10 +1,14 @@
 #![feature(provide_any)]
 #![feature(error_generic_member_access)]
 #![feature(trait_alias)]
-use syncthing::{configs, logger::{Logger, ErrorLogging}};
-use tokio::{ time };
-use log::{error, info};
-mod syncthing;
+#![feature(async_closure)]
+#![feature(is_some_and)]
+use logger::{r#struct::Logger, error::ErrorLogging};
+use watcher::{configs, watcher_scripts::WatcherScripts, init::Watcher};
+use log::error;
+mod logger;
+mod watcher;
+
 
 #[tokio::main]
 async fn main() {
@@ -21,30 +25,44 @@ async fn main() {
 async fn poll() {
     match tokio::spawn(async move {
         Logger::on_load();
-        let configs = match configs::Configs::load() {
+
+        let api_configs = match configs::Configs::load() {
             Ok(c) => c,
             Err(e) => {
-                error!("error loading configs: {}", e.to_string());
+                Logger::log_error_string(&format!("error loading configs: {}", e.to_string()));
                 panic!()
             }
         };
-        let mut interval = time::interval(time::Duration::from_secs(configs.request_interval.clone()));
-        let mut syncthing_api = syncthing::api::SyncthingApi::new(configs);
-        info!("beginning to poll...");
-        loop {
-            match syncthing_api.update().await {
-                Ok(events) => events,
-                Err(e) => {
-                    error!("{}", e.to_string());
-                    return;
+
+        let scripts_path = api_configs.scripts_path.clone();
+
+        let watcher_scripts = match WatcherScripts::ingest_configs(&scripts_path) {
+            Ok(script_records) => script_records,
+            Err(e) => {
+                Logger::log_error_string(&format!("error loading configs: {}", e.to_string()));
+                panic!()
+            }
+        };
+        let watcher = Watcher::init(&watcher_scripts);
+
+        match watcher.watch_handle {
+            Ok(join_handle) => {
+                match join_handle.await {
+                    Ok(()) => {},
+                    Err(e) => {
+                        error!("{}", e.to_string());
+                        panic!()
+                    }
                 }
-            };
-            interval.tick().await;
+            },
+            Err(_) => {
+                return
+            }
         }
     }).await {
         Ok(_) => (),
         Err(_) => {
-            error!("error spawning loop")
+            Logger::log_error_string(&"error spawning loop".into());
         }
     }
 }

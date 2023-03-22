@@ -1,0 +1,1 @@
+RUST_LOG=debug cargo run src/main.rs /home/syncthing/music
