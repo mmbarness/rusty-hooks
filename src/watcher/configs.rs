@@ -4,7 +4,9 @@ use dotenv::dotenv;
 use strum::ParseError;
 use thiserror::Error;
 use strum_macros::{EnumString, AsRefStr};
-use super::logger::{Logger, InfoLogging, DebugLogging};
+
+use crate::logger::{r#struct::Logger, info::InfoLogging, debug::DebugLogging};
+
 
 #[derive(Debug, Clone)]
 pub struct Configs {
