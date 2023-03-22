@@ -2,7 +2,6 @@ use std::{path::{PathBuf}, sync::{Mutex, Arc}, time::Duration};
 use async_process::{Child, Command, Output};
 use futures::future::try_join_all;
 use tokio::sync::broadcast::{Receiver, Sender};
-use log::info;
 use crate::logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
 use super::{watcher_errors::{ script_error::ScriptError}, watcher_scripts::{ Script}};
 
@@ -48,7 +47,7 @@ impl Runner {
             runtime_lock.spawn(async move {
                 tokio::time::sleep_until(tokio::time::Instant::now() + Duration::from_secs(10)).await;
                 let script_processes:Vec<_> = scripts.iter().map(|script|{
-                    Self::run(&script.file_name, path.clone())
+                    Self::run(&script.file_path, &path)
                 }).collect();
                 let awaited_scripts = match try_join_all(script_processes).await {
                     Ok(vec) => vec,
@@ -58,11 +57,12 @@ impl Runner {
                     }
                 };
                 for script in awaited_scripts {
-                    Logger::log_info_string(&format!("printing script stdout...: {:?}", script.stdout));
                     match script.status.success() {
-                        true => {},
+                        true => {
+                            Logger::log_info_string(&format!("printing script stdout...: {:?}", String::from_utf8(script.stdout)));
+                        },
                         false => {
-                            Logger::log_error_string(&format!("one or several of the scripts returned a stderr...: {:?}", script.stderr))
+                            Logger::log_error_string(&format!("one or several of the scripts returned a stderr...: {:?}", String::from_utf8(script.stderr)))
                         }
                     }
                 }
@@ -94,16 +94,14 @@ impl Runner {
         }
     }
 
-    async fn run(script_path: &String, path: PathBuf) -> Result<Output, ScriptError> {
-        let path_string = match path.to_str() {
+    async fn run(script_path: &PathBuf, target_path: &PathBuf) -> Result<Output, ScriptError> {
+        let path_string = match script_path.to_str() {
             Some(s) => s,
             None => "uh",
         };
-        Logger::log_debug_string(&format!("running script at: {}", script_path));
         Logger::log_debug_string(&format!("path is at: {}", path_string));
-        Ok(Command::new("sh")
-            .arg("-C")
-            .arg(script_path.to_string())
+        Ok(Command::new(script_path)
+            .arg(target_path)
             .output()
             .await?)
     }
