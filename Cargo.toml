@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 async-process = "1.6.0"
 async-trait = "0.1.60"
+chrono = "0.4.24"
 dotenv = "0.15.0"
 env_logger = "0.10.0"
 flume = "0.10.14"
@@ -20,6 +21,7 @@ notify = { version = "5.1.0", features  = ["serde"]}
 reqwest = "0.11.14"
 serde = { version = "1.0.150", features = ["derive"] }
 serde_json = "1.0.89"
+sha2 = "0.10.6"
 strum = "0.24.1"
 strum_macros = "0.24.3"
 thiserror = "1.0.38"
