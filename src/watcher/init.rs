@@ -121,10 +121,11 @@ impl Watcher {
         let arc_clone = runtime_arc.clone();
 
         let script_runner = Runner::new();
-        let subscribe_channel_0 = script_runner.spawn_channel.0.clone();
-        let subscribe_channel_1 = script_runner.spawn_channel.0.clone();
-
+        let spawn_channel = script_runner.spawn_channel.0.clone();
+        
         let paths_subscriber = path_subscriber::PathSubscriber::new();
+        let subscribe_channel = paths_subscriber.subscribe_channel.0.clone();
+        let unsub_channel = paths_subscriber.unsubscribe_channel.0.clone();
         let paths_subscriber_arc = Arc::new(tokio::sync::Mutex::new(paths_subscriber));
 
         let runtime_arc = arc_clone.lock().await;
@@ -133,7 +134,11 @@ impl Watcher {
         let subscription_task = runtime_arc.spawn(async move {
             let local_subscriber = paths_subscriber_arc.clone();
             let paths_subscriber_lock = local_subscriber.lock().await;
-            paths_subscriber_lock.route_subscriptions(event_channel_for_path_subscriber, subscribe_channel_0).await;
+            paths_subscriber_lock.route_subscriptions(event_channel_for_path_subscriber, spawn_channel).await;
+        });
+        
+        let runner_task = runtime_arc.spawn(async move {
+            script_runner.init(unsub_channel).await
         });
         
         let root_dir =root_watch_path.as_ref().to_path_buf();
@@ -176,7 +181,7 @@ impl Watcher {
                                 // Logger::log_debug_string(&dirs_string);
                                 
                                 for event_home_dir in unique_event_home_dirs {
-                                    let _ = subscribe_channel_1.send((event_home_dir, event_scripts.clone()));
+                                    let _ = subscribe_channel.send((event_home_dir, event_scripts.clone()));
                                 }
                             }
                         };
@@ -189,6 +194,8 @@ impl Watcher {
         subscription_task.await;
         
         events_task.await;
+
+        runner_task.await;
 
         let last_sender = broadcast_sender.clone();
 

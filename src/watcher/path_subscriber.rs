@@ -10,9 +10,9 @@ use crate::{logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, d
 use super::{watcher_scripts::{Script}, watcher_errors::{thread_error::ThreadError, timer_error::TimerError}};
 
 pub struct PathSubscriber {
-    paths: Arc<std::sync::Mutex<HashMap<u64, (PathBuf, Vec<Script>)>>>,
-    subscribe_channel: (Sender<(PathBuf, Vec<Script>)>, Receiver<(PathBuf, Vec<Script>)>),
-    unsubscribe_channel: (Sender<PathBuf>, Receiver<PathBuf>)
+    pub paths: Arc<std::sync::Mutex<HashMap<u64, (PathBuf, Vec<Script>)>>>,
+    pub subscribe_channel: (Sender<(PathBuf, Vec<Script>)>, Receiver<(PathBuf, Vec<Script>)>),
+    pub unsubscribe_channel: (Sender<PathBuf>, Receiver<PathBuf>)
 }
 
 struct Timer {
@@ -164,9 +164,8 @@ impl PathSubscriber {
         Ok(should_add_path)
     }
 
-
     pub async fn route_subscriptions(&self, events_listener: Sender<Result<Event, Arc<notify::Error>>>, spawn_channel: Sender<(PathBuf, Vec<Script>)>) -> () {
-        let mut subscription_listener = spawn_channel.subscribe();
+        let mut subscription_listener = self.subscribe_channel.0.subscribe();
         let paths = self.paths.clone();
         let wait_threads = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(4)
@@ -179,7 +178,7 @@ impl PathSubscriber {
             let events = events_listener.subscribe();
             let path_str = path.to_str().unwrap_or("unable to read incoming path into string");
             Logger::log_info_string(&format!("received new path subscription: {}", path_str));
-            let subscribed_to_new_path = match Self::lock_and_update_paths(path.clone(), paths.clone(), scripts) {
+            let subscribed_to_new_path = match Self::lock_and_update_paths(path.clone(), paths.clone(), scripts.clone()) {
                 Ok(subscribed) => subscribed,
                 Err(e) => {
                     return ();
@@ -190,6 +189,8 @@ impl PathSubscriber {
                 // need to now start a timer for 1 minute or whatever
                 // listen for all events at original watch directory by listening to the same core broadcast channel
                 // reset the timer every time an event concerned with the same path is broadcast
+                
+                let spawn_channel = spawn_channel.clone();
                 wait_threads.spawn(async move {
                     let initiation_timestamp = chrono::prelude::Utc::now();
                     Self::start_waiting(path.clone(), events).await;
@@ -197,6 +198,13 @@ impl PathSubscriber {
                     let time_since_initiation = chrono::prelude::Utc::now().signed_duration_since(initiation_timestamp);
                     let time_since_str = time_since_initiation.num_seconds().to_string();
                     Logger::log_info_string(&format!("time since start_waiting was intiated: {}", time_since_str));
+                    let stuff_to_send = (path.clone(), scripts);
+                    match spawn_channel.send(stuff_to_send) {
+                        Ok(_) => { Logger::log_debug_string(&"successfully sent path and scripts over spawn channel".to_string())},
+                        Err(e) => {
+                            Logger::log_error_string(&e.to_string())
+                        }
+                    }
                     // can execute commands within this runtime thread
                     // once the timer runs out, need to get the scripts that have been queued for the path?
                     // the path comes from the event, and the event is associated with n scripts, so a path subscription could also be provided the scripts associated with that event

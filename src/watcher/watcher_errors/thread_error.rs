@@ -1,6 +1,6 @@
 use std::{error, sync::{PoisonError, MutexGuard}, process::Child, fmt, collections::HashMap, path::PathBuf};
 use futures::{channel::mpsc::SendError};
-use crate::watcher::watcher_scripts::{WatcherScripts, Script};
+use crate::watcher::watcher_scripts::{Script};
 
 use super::script_error::ScriptError;
 impl error::Error for ThreadError<'_> {}

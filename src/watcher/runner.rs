@@ -33,6 +33,8 @@ impl Runner {
         let runtime = self.runtime.clone();
         // listening for paths to run scripts on, sent over from the PathSubscriber
         while let Ok((path, scripts)) = spawn_listener.recv().await {
+            let path_string = path.to_str().unwrap_or("unable to pull string out of path buf");
+            Logger::log_error_string(&format!("new path to spawn scripts for: {}", path_string));
             let unsubscribe_clone = unsubscribe.clone();
             let runtime_lock = match runtime.lock() {
                 Ok(lock) => lock,
@@ -60,7 +62,7 @@ impl Runner {
                     match script.status.success() {
                         true => {},
                         false => {
-                            Logger::log_error_string(&format!("successfully ran script, printing stderr...: {:?}", script.stderr))
+                            Logger::log_error_string(&format!("one or several of the scripts returned a stderr...: {:?}", script.stderr))
                         }
                     }
                 }
@@ -93,6 +95,12 @@ impl Runner {
     }
 
     async fn run(script_path: &String, path: PathBuf) -> Result<Output, ScriptError> {
+        let path_string = match path.to_str() {
+            Some(s) => s,
+            None => "uh",
+        };
+        Logger::log_debug_string(&format!("running script at: {}", script_path));
+        Logger::log_debug_string(&format!("path is at: {}", path_string));
         Ok(Command::new("sh")
             .arg("-C")
             .arg(script_path.to_string())

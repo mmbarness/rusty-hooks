@@ -1,4 +1,4 @@
-use std::{process::{Child, Command}, fs::{self}, thread::{self, JoinHandle}, sync::{ Arc }, collections::HashMap};
+use std::{process::{Child, Command}, fs::{self}, thread::{self, JoinHandle}, sync::{ Arc }, collections::HashMap, path::Path};
 use log::{info, debug};
 use notify::{EventKind, event::{AccessKind}, Event};
 use serde::{Deserialize, Serialize};
@@ -37,9 +37,10 @@ impl WatcherScripts {
             if !valid_so_far {
                 return valid_so_far
             }
-            let path = format!("./scripts/{}", current.file_name.clone());
-            info!("path of identified script: {}", path);
-            is_executable::is_executable(path)
+            let path_string = format!("./scripts/{}", current.file_name.clone());
+            info!("path of identified script: {}", path_string);
+            let as_path = Path::new(&path_string);
+            is_executable::is_executable(as_path)
         }) {
             true => {},
             false => return Err(ScriptError::GenericMessage("unable to validate scripts folder".into())),
@@ -55,8 +56,8 @@ impl WatcherScripts {
         let acc_int:ScriptsByEventTrigger = HashMap::new();
         let files_iter = files.clone().into_iter();
         // iterate over each file and reduce to hashmap of event type and associated scripts to run
-        files_iter.fold(acc_int, |scripts_by_event_type_acc, current| {
-            let current_event_triggers = &current.event_triggers;
+        files_iter.fold(acc_int, |scripts_by_event_type_acc, current_script| {
+            let current_event_triggers = &current_script.event_triggers;
             // need to reduce over the array of events a given script schema should be tied to and update the upper-level accumulator accordingly
             current_event_triggers.into_iter().fold(scripts_by_event_type_acc, |mut scripts_by_event_type_acc, event| {
                 let event_string = event.clone();
@@ -70,7 +71,7 @@ impl WatcherScripts {
                         return scripts_by_event_type_acc
                     }
                 };
-                let event_schemas = Self::update_schema_vec(&event_kind, current.clone(), &mut scripts_by_event_type_acc);
+                let event_schemas = Self::update_schema_vec(&event_kind, current_script.clone(), &mut scripts_by_event_type_acc);
                 scripts_by_event_type_acc.insert(event_kind.clone(), event_schemas);
                 scripts_by_event_type_acc
             })
@@ -89,6 +90,8 @@ impl WatcherScripts {
                         acc_event_type_scripts.to_vec()
                     }
                     false => {
+                        let path_string = format!("./scripts/{}", new_script.file_name.clone());
+                        let abs_path_to_script = Path::new(&path_string);
                         acc_event_type_scripts.push(new_script.clone());
                         acc_event_type_scripts.to_vec()
                     }
