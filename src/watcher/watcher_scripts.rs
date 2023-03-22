@@ -1,9 +1,8 @@
-use std::{process::{Child, Command}, fs::{self}, thread::{self, JoinHandle}, sync::{ Arc }, collections::HashMap, path::{Path, PathBuf}};
+use std::{fs::{self}, collections::HashMap, path::{Path, PathBuf}};
 use log::{info, debug};
-use notify::{EventKind, event::{AccessKind}, Event};
+use notify::{EventKind, event::{AccessKind}};
 use serde::{Deserialize, Serialize};
-use super::watcher_errors::{script_error::ScriptError, spawn_error::SpawnError};
-
+use super::watcher_errors::{script_error::ScriptError};
 
 #[derive(Debug, Clone)]
 pub struct WatcherScripts {
@@ -30,7 +29,6 @@ pub struct Script {
 impl From<ScriptJSON> for Script {
     fn from(json: ScriptJSON) -> Self {
         let path_string = format!("./scripts/{}", json.file_name.clone());
-        info!("path of identified script: {}", path_string);
         let as_path = Path::new(&path_string).to_path_buf();
         Script {
             event_triggers: json.event_triggers,
@@ -112,7 +110,6 @@ impl WatcherScripts {
                         acc_event_type_scripts.to_vec()
                     }
                     false => {
-                        let path_string = format!("./scripts/{}", script_json.file_name.clone());
                         acc_event_type_scripts.push(script_json.into());
                         acc_event_type_scripts.to_vec()
                     }
@@ -121,7 +118,6 @@ impl WatcherScripts {
             None => {
                 let event_type_and_schema_to_insert = vec![script_json.clone().into()];
                 scripts.insert(event_type.clone(), vec![script_json.clone().into()]);
-                // accumulator_copy
                 event_type_and_schema_to_insert
             }
         }

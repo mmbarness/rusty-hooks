@@ -1,6 +1,4 @@
-use std::fmt::Debug;
-
-use log::{debug, error, log_enabled, info, Level};
+use log::{debug, log_enabled, Level};
 use super::r#struct::Logger;
 
 pub trait DebugLogging {

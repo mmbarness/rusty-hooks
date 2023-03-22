@@ -1,4 +1,4 @@
-use log::{debug, error, log_enabled, info, Level};
+use log::{log_enabled, info, Level};
 
 use super::r#struct::Logger;
 

@@ -1,11 +1,10 @@
 use tokio::{sync::{Mutex}, runtime::{Builder}};
-use std::{path::PathBuf, collections::{hash_map::DefaultHasher, HashSet}, sync::Arc, time::Duration};
-use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher, Config, event::ModifyKind, EventKind};
-use std::{hash::{Hash,Hasher}, path::Path};
+use std::{sync::Arc};
+use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher, Config};
+use std::{path::Path};
 use log::{info, error};
-use crate::logger::{r#struct::Logger, info::InfoLogging, error::ErrorLogging, debug::DebugLogging};
-
-use super::{watcher_scripts::WatcherScripts, watcher_errors::{path_error::PathError}, runner::Runner};
+use crate::logger::{r#struct::Logger, info::InfoLogging, error::ErrorLogging};
+use super::{watcher_scripts::{WatcherScripts}, runner::Runner};
 use super::{path_subscriber};
 
 #[derive(Debug)]
@@ -22,7 +21,7 @@ impl Watcher {
         let scripts_clone = scripts.clone();
         let tokio_runtime = Builder::new_multi_thread()
             .worker_threads(4)
-            .thread_name("my-custom-name")
+            .thread_name("watcher-runtime")
             .thread_stack_size(3 * 1024 * 1024)
             .enable_time()
             .build()
@@ -38,42 +37,7 @@ impl Watcher {
             watch_handle: Ok(watch_handle),
         }
     }
-
-    fn ignore(event: &notify::Event) -> bool {
-        match &event.kind {
-            EventKind::Modify(e) => {
-                match e {
-                    // type of event that takes place when the file finishes and its .tmp extension is removed
-                    ModifyKind::Name(notify::event::RenameMode::To) => false,
-                    _ => true,
-                }
-            },
-            _ => true,
-        }
-    }
-
     
-    pub fn hasher(path: &PathBuf) -> Result<u64, PathError> {
-        let mut hasher = DefaultHasher::new();
-        let abs_path = path.canonicalize()?;
-        abs_path.hash(& mut hasher);
-        Ok(hasher.finish())
-    }
-    
-    fn walk_up_to_event_home_dir<'a>(leaf:PathBuf, root: PathBuf) -> Result<PathBuf,PathError> {
-        // walk upwards from the leaf until we hit the parentmost directory of the event, i.e. the path that is one level below the root
-        let leaf_hash = Self::hasher(&leaf)?;
-        let parent_of_leaf = leaf.parent().ok_or(PathError::TraversalError)?;
-        let parent_of_leaf_hash = Self::hasher(&parent_of_leaf.to_path_buf())?;
-        let root_hash = Self::hasher(&root)?;
-        if parent_of_leaf_hash == root_hash {
-            return Ok(leaf)
-        } else if leaf_hash == root_hash {
-            return Err(PathError::TraversalError)
-        } else {
-            Self::walk_up_to_event_home_dir(parent_of_leaf.to_path_buf(), root)
-        }
-    }
     fn run_watcher() -> notify::Result<(
         RecommendedWatcher, (
             tokio::sync::broadcast::Sender<Result<Event, Arc<notify::Error>>>,
@@ -100,10 +64,7 @@ impl Watcher {
                     broadcast_tx.send(Err(error_arc)).unwrap();
                 }
             }
-            // multi_sender.send(res);
-            // futures::executor::block_on(async {
-            //     tx.send(res).await.unwrap();
-            // })
+
         }, Config::default())?;
 
         Logger::log_info_string(&"beginning to watch for events".to_string());
@@ -111,7 +72,11 @@ impl Watcher {
         Ok((watcher, (broadcast_clone, broadcast_rx)))
     }
     
-    async fn watch_handler<P: AsRef<Path>>(runtime_arc: &Arc<Mutex<tokio::runtime::Runtime>>, root_watch_path: P, scripts: WatcherScripts) -> notify::Result<()> {
+    async fn watch_handler<P: AsRef<Path>>(
+        runtime_arc: &Arc<Mutex<tokio::runtime::Runtime>>, 
+        root_watch_path: P, 
+        scripts: WatcherScripts
+    ) -> notify::Result<()> {
         let (mut watcher, (broadcast_sender, mut events)) = Self::run_watcher()?;
 
         let event_channel_for_path_subscriber = broadcast_sender.clone();
@@ -143,61 +108,19 @@ impl Watcher {
         
         let root_dir =root_watch_path.as_ref().to_path_buf();
         // start watching for new events from the notify crate
-        let events_task = runtime_arc.spawn(async move {
-            while let Ok(res) = events.recv().await {
-                match res {
-                    Ok(event) => {
-                        match Self::ignore(&event) {
-                            true => {
-                                // Logger::log_debug_string(&format!("ignoring event of kind: {:?}", &event.kind))
-                            },
-                            false => {
-                                Logger::log_debug_string(&format!("not ignoring event of kind: {:?}", &event.kind));
-                                let scripts_clone = scripts.clone();
-                                let event_scripts = match scripts_clone.scripts_by_event_triggers.get(&event.kind) { 
-                                    Some(scripts) => scripts,
-                                    None => continue
-                                };
-                                let root_dir = root_dir.clone();
-                                let event_clone = event.clone();
-                                let paths = event_clone.paths;
-                                let acc: HashSet<PathBuf> = HashSet::new();
-                                // convert to hashset to enforce unique values
-                                let unique_event_home_dirs = paths.iter().fold(acc, |mut acc:HashSet<PathBuf>, path| {
-                                    let events_root_dir = match Self::walk_up_to_event_home_dir(path.clone(), root_dir.clone()) {
-                                        Ok(event_root) => event_root,
-                                        Err(e) => {
-                                            return acc
-                                        }
-                                    };
-                                    acc.insert(events_root_dir.clone()); // returns true  or false based on whether or not it already existed, but we dont care
-                                    acc
-                                });
-                                let dirs_string = match serde_json::to_string_pretty(&unique_event_home_dirs) {
-                                    Ok(string) => string,
-                                    Err(e) => e.to_string()
-                                };
-                                // Logger::log_debug_string(&format!("unique dirs hashset is length: {}", unique_event_home_dirs.len()));
-                                // Logger::log_debug_string(&dirs_string);
-                                
-                                for event_home_dir in unique_event_home_dirs {
-                                    let _ = subscribe_channel.send((event_home_dir, event_scripts.clone()));
-                                }
-                            }
-                        };
-                    },
-                    Err(e) => println!("watch error: {:?}", e),
-                }
-            }
-        });
+        let events_task = Self::watch_events(
+            &arc_clone,
+            events, 
+            root_dir,
+            scripts.clone(), 
+            subscribe_channel
+        );
 
         subscription_task.await;
         
         events_task.await;
 
         runner_task.await;
-
-        let last_sender = broadcast_sender.clone();
 
         Ok(())
     }

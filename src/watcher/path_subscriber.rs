@@ -1,22 +1,16 @@
-use std::{path::PathBuf, time::{Duration, self}, collections::{HashSet, HashMap, hash_map::DefaultHasher}, sync::{Arc}};
+use std::{path::PathBuf, time::{Duration}, collections::{HashMap, hash_map::DefaultHasher}, sync::{Arc}};
 use chrono::{DateTime, Utc};
-use log::{info, error};
 use notify::Event;
-use tokio::{sync::{broadcast::{Sender, Receiver, error::RecvError}, Mutex}, task::JoinHandle, time::{sleep, Instant}};
+use tokio::{sync::{broadcast::{Sender, Receiver}, Mutex},time::{sleep}};
 use std::hash::Hash;
 use std::hash::Hasher;
-use crate::{logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}, watcher::path_subscriber};
-
+use crate::{logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}};
 use super::{watcher_scripts::{Script}, watcher_errors::{thread_error::ThreadError, timer_error::TimerError}};
 
 pub struct PathSubscriber {
     pub paths: Arc<std::sync::Mutex<HashMap<u64, (PathBuf, Vec<Script>)>>>,
     pub subscribe_channel: (Sender<(PathBuf, Vec<Script>)>, Receiver<(PathBuf, Vec<Script>)>),
     pub unsubscribe_channel: (Sender<PathBuf>, Receiver<PathBuf>)
-}
-
-struct Timer {
-
 }
 
 impl PathSubscriber {
@@ -37,14 +31,6 @@ impl PathSubscriber {
         let mut hasher = DefaultHasher::new();
         path.hash(& mut hasher);
         hasher.finish()
-    }
-
-    fn clone_subscription_listener(&self) -> Receiver<(PathBuf, Vec<Script>)> {
-        self.subscribe_channel.0.subscribe()
-    }
-
-    fn clone_desubscribe_listener(&self) -> Receiver<PathBuf> {
-        self.unsubscribe_channel.0.subscribe()
     }
 
     pub async fn unsubscriber (&self, path: PathBuf) {
@@ -186,10 +172,7 @@ impl PathSubscriber {
             };
             Logger::log_info_string(&format!("subscribed_to_new_path: {}", subscribed_to_new_path));
             if subscribed_to_new_path {
-                // need to now start a timer for 1 minute or whatever
-                // listen for all events at original watch directory by listening to the same core broadcast channel
-                // reset the timer every time an event concerned with the same path is broadcast
-                
+
                 let spawn_channel = spawn_channel.clone();
                 wait_threads.spawn(async move {
                     let initiation_timestamp = chrono::prelude::Utc::now();
