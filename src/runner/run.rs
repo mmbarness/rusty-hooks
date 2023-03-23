@@ -1,18 +1,13 @@
 use std::{path::{PathBuf}, sync::{Mutex, Arc}, time::Duration};
 use async_process::{Command, Output};
 use futures::future::try_join_all;
-use tokio::sync::broadcast::{Receiver, Sender};
-use crate::logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
-use super::{watcher_errors::{ script_error::ScriptError}, watcher_scripts::{ Script}};
-
-pub struct Runner {
-    pub runtime: Arc<Mutex<tokio::runtime::Runtime>>,
-    pub spawn_channel: (Sender<(PathBuf, Vec<Script>)>, Receiver<(PathBuf, Vec<Script>)>)
-}
+use crate::{logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}, watcher::{watcher_errors::script_error::ScriptError, watcher_scripts::Script}};
+use super::r#struct::Runner;
 
 impl Runner {
     pub fn new() -> Self {
         let spawn_channel = tokio::sync::broadcast::channel::<(PathBuf, Vec<Script>)>(16);
+        let unsubscribe_broadcast_channel = tokio::sync::broadcast::channel::<PathBuf>(16);
         let script_runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(4)
             .thread_name("script-runner")
@@ -24,17 +19,18 @@ impl Runner {
         Runner {
             runtime: script_runtime_arc,
             spawn_channel,
+            unsubscribe_broadcast_channel
         }
     }
 
-    pub async fn init(&self, unsubscribe: Sender<PathBuf>) {
+    pub async fn init(&self) {
         let mut spawn_listener = self.spawn_channel.0.clone().subscribe();
         let runtime = self.runtime.clone();
         // listening for paths to run scripts on, sent over from the PathSubscriber
         while let Ok((path, scripts)) = spawn_listener.recv().await {
             let path_string = path.to_str().unwrap_or("unable to pull string out of path buf");
-            Logger::log_error_string(&format!("new path to spawn scripts for: {}", path_string));
-            let unsubscribe_clone = unsubscribe.clone();
+            Logger::log_debug_string(&format!("new path to spawn scripts for: {}", path_string));
+            let unsubscribe_clone = self.unsubscribe_broadcast_channel.0.clone();
             let runtime_lock = match runtime.lock() {
                 Ok(lock) => lock,
                 Err(e) => {
@@ -70,13 +66,11 @@ impl Runner {
                 let path_display = path_clone.display();
                 let unsubscribe_success_message = &format!("successfully unsubscribed from path: {}", path_display);
                 match unsubscribe_clone.send(path) {
-                    Ok(_) => {
-                        Logger::log_info_string(unsubscribe_success_message)
-                    },
+                    Ok(_) => {},
                     Err(e) => {
-                        let message = format!("error while attempting to unsubscribe from path, retrying...");
+                        let message = format!("retrying...");
+                        Logger::log_error_string(&e.to_string());
                         Logger::log_error_string(&message);
-                        Logger::log_debug_string(&e.to_string());
                         match unsubscribe_clone.send(path_clone) {
                             Ok(_) => {
                                 Logger::log_info_string(unsubscribe_success_message)

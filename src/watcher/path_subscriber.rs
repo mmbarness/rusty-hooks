@@ -1,11 +1,11 @@
-use std::{path::PathBuf, time::{Duration}, collections::{HashMap, hash_map::DefaultHasher}, sync::{Arc}};
+use std::{path::PathBuf, time::{Duration}, collections::{HashMap, hash_map::DefaultHasher}, sync::{Arc, MutexGuard}};
 use chrono::{DateTime, Utc};
 use notify::Event;
 use tokio::{sync::{broadcast::{Sender, Receiver}, Mutex},time::{sleep}};
 use std::hash::Hash;
 use std::hash::Hasher;
 use crate::{logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}};
-use super::{watcher_scripts::{Script}, watcher_errors::{thread_error::ThreadError, timer_error::TimerError}};
+use super::{watcher_scripts::{Script}, watcher_errors::{thread_error::ThreadError, timer_error::TimerError, path_error::PathError}};
 
 pub struct PathSubscriber {
     pub paths: Arc<std::sync::Mutex<HashMap<u64, (PathBuf, Vec<Script>)>>>,
@@ -33,8 +33,13 @@ impl PathSubscriber {
         hasher.finish()
     }
 
-    pub async fn unsubscriber (&self, path: PathBuf) {
-  
+    pub fn unsubscribe(path: &PathBuf, mut paths: MutexGuard<'_, HashMap<u64, (PathBuf, Vec<Script>)>>) -> Result<(), PathError> {
+        let path_string = path.to_str().unwrap_or("unable to pull string out of path buf");
+        let path_hash = Self::hasher(&path_string.to_string());
+        match paths.remove_entry(&path_hash) {
+            Some(_) => Ok(()),
+            None => Err(PathError::UnsubscribeError(format!("didn't find path in cache, didnt unsubscribe")))
+        }
     }
 
     async fn time_to_break (timer_controller: &Arc<Mutex<(chrono::Duration,DateTime<Utc>)>>) -> Result<bool, TimerError> {
@@ -94,14 +99,12 @@ impl PathSubscriber {
                     let cur_path_parent = cur_path.ancestors().any(|ancestor| {
                         let path_string = ancestor.to_str().unwrap_or("unable to pull string out of path buf");
                         let ancestor_hash = Self::hasher(&path_string.to_string());
-                        Logger::log_debug_string(&format!("original_hash: {}, hashed_cur_path: {}", hashed_original_path, ancestor_hash));
                         ancestor_hash == hashed_original_path
                     });
                     cur_path_parent
                 });
-                Logger::log_info_string(&format!("path_overlap: {}", path_overlap));
                 if path_overlap {
-                    Logger::log_info_string(&"attempting to update timestamp to wait duration from".to_string());
+                    Logger::log_debug_string(&"attempting to update timestamp to wait duration from".to_string());
                     // need to update the timer's timestamp to now
                     let now = chrono::prelude::Utc::now();
                     let mut controller_lock = controller_1.lock().await;
@@ -119,10 +122,8 @@ impl PathSubscriber {
                 Logger::log_error_string(&e.to_string())
             }
         }
-
-        // stop listening for events once the timer has run out. because the events thread continually pushes the timer back as it receives new relevant events, this will always be what we want to happen
+        // stop listening for events once the timer has run out
         events_thread.abort();
-
     }
 
     fn lock_and_update_paths<'a>(new_path:PathBuf, paths: Arc<std::sync::Mutex<HashMap<u64, (PathBuf, Vec<Script>)>>>, scripts: Vec<Script>) -> Result<bool, ThreadError<'a>> {
@@ -134,7 +135,7 @@ impl PathSubscriber {
                 Logger::log_error_string(&format!("{}", &message));
                 let thread_error = ThreadError::PathsLockError(e);
                 // handle the poison error better here  - https://users.rust-lang.org/t/mutex-poisoning-why-and-how-to-recover/72192/12#:~:text=You%20can%20ignore%20the%20poisoning%20by%20turning,value%20back%20into%20a%20non%2Dbroken%20state.
-                // implement a path cache, so that in the event of a poison error the path is reset to the cache?
+                // TODO: implement a path cache, so that in the event of a poison error the path is reset to the cache?
                 return Ok(false)
             }
         };
@@ -162,36 +163,33 @@ impl PathSubscriber {
             .unwrap();
         while let Ok((path, scripts)) = subscription_listener.recv().await {
             let events = events_listener.subscribe();
-            let path_str = path.to_str().unwrap_or("unable to read incoming path into string");
-            Logger::log_info_string(&format!("received new path subscription: {}", path_str));
             let subscribed_to_new_path = match Self::lock_and_update_paths(path.clone(), paths.clone(), scripts.clone()) {
                 Ok(subscribed) => subscribed,
                 Err(e) => {
                     return ();
                 }
             };
-            Logger::log_info_string(&format!("subscribed_to_new_path: {}", subscribed_to_new_path));
+            let path_str = path.to_str().unwrap_or("unable to read incoming path into string");
+            match subscribed_to_new_path {
+                true => {
+                    Logger::log_info_string(&format!("watching new path at {}",path_str));
+                },
+                false => {
+                    Logger::log_info_string(&format!("received new path subscription, but it's already being observed {}", path_str));
+                }
+            }
             if subscribed_to_new_path {
-
                 let spawn_channel = spawn_channel.clone();
                 wait_threads.spawn(async move {
-                    let initiation_timestamp = chrono::prelude::Utc::now();
                     Self::start_waiting(path.clone(), events).await;
                     Logger::log_info_string(&"successfully waited on timer expiration, now running scripts".to_string());
-                    let time_since_initiation = chrono::prelude::Utc::now().signed_duration_since(initiation_timestamp);
-                    let time_since_str = time_since_initiation.num_seconds().to_string();
-                    Logger::log_info_string(&format!("time since start_waiting was intiated: {}", time_since_str));
                     let stuff_to_send = (path.clone(), scripts);
                     match spawn_channel.send(stuff_to_send) {
-                        Ok(_) => { Logger::log_debug_string(&"successfully sent path and scripts over spawn channel".to_string())},
+                        Ok(_) => { Logger::log_debug_string(&"sent path and scripts to script runner over spawn channel".to_string())},
                         Err(e) => {
                             Logger::log_error_string(&e.to_string())
                         }
                     }
-                    // can execute commands within this runtime thread
-                    // once the timer runs out, need to get the scripts that have been queued for the path?
-                    // the path comes from the event, and the event is associated with n scripts, so a path subscription could also be provided the scripts associated with that event
-                    // unsubscribe from path
                 });
             }
         }

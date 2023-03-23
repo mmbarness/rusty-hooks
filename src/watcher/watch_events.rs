@@ -1,12 +1,11 @@
-use tokio::{sync::{Mutex, broadcast::{Receiver, Sender}}};
+use tokio::{sync::{broadcast::{Receiver, Sender}, TryLockError}};
 use std::{path::PathBuf, collections::{hash_map::DefaultHasher, HashSet}, sync::Arc};
 use notify::{Event, event::ModifyKind, EventKind};
 use std::{hash::{Hash,Hasher}};
-use crate::logger::{r#struct::Logger,debug::DebugLogging};
+use crate::logger::{r#struct::Logger,debug::DebugLogging, info::InfoLogging, error::ErrorLogging};
 use super::{init::Watcher, watcher_errors::path_error::PathError, watcher_scripts::{WatcherScripts, Script}};
 
 impl Watcher {
-
     pub fn hasher(path: &PathBuf) -> Result<u64, PathError> {
         let mut hasher = DefaultHasher::new();
         let abs_path = path.canonicalize()?;
@@ -42,69 +41,61 @@ impl Watcher {
         }
     }
 
-    fn handle_modifying_event(
-        event: Event,
+    // accepts events of kind Modify, finds *their* root dirs, i.e. the uppermost affected directory relative to the root watched path, and sends those to the subscribe runtime
+    fn get_unique_event_home_dirs(
+        event: &Event,
         root_dir: PathBuf,
-        scripts: WatcherScripts,
-        subscribe_channel: Sender<(PathBuf, Vec<Script>)>
-    ) -> () {
-        Logger::log_debug_string(&format!("not ignoring event of kind: {:?}", &event.kind));
-        let scripts_clone = scripts.clone();
-        let event_scripts = match scripts_clone.scripts_by_event_triggers.get(&event.kind) { 
-            Some(scripts) => scripts,
-            None => return ()
-        };
+    ) -> HashSet<PathBuf> {
         let root_dir = root_dir.clone();
         let event_clone = event.clone();
         let paths = event_clone.paths;
         let acc: HashSet<PathBuf> = HashSet::new();
         // convert to hashset to enforce unique values
-        let unique_event_home_dirs = paths.iter().fold(acc, |mut acc:HashSet<PathBuf>, path| {
+        paths.iter().fold(acc, |mut acc:HashSet<PathBuf>, path| {
             let events_root_dir = match Self::walk_up_to_event_home_dir(path.clone(), root_dir.clone()) {
                 Ok(event_root) => event_root,
-                Err(e) => {
+                Err(_) => {
+                    // TODO: cache errored paths to retry later?
+                    Logger::log_error_string(&format!(r#"error while looking for events root directory, i.e. the uppermost affected directory "prior" to the directory rusty-hooks is watching. skipping."#));
                     return acc
                 }
             };
             acc.insert(events_root_dir.clone()); // returns true  or false based on whether or not it already existed, but we dont care
             acc
-        });
+        })
         
-        for event_home_dir in unique_event_home_dirs {
-            let _ = subscribe_channel.send((event_home_dir, event_scripts.clone()));
-        }
     }
  
     pub async fn watch_events(
-        arc_clone:&Arc<Mutex<tokio::runtime::Runtime>>,
         mut events_receiver: Receiver<Result<Event, Arc<notify::Error>>>,
         root_dir: PathBuf,
         scripts: WatcherScripts,
         subscribe_channel: Sender<(PathBuf, Vec<Script>)>
-    ) -> () {
-        let runtime_arc = arc_clone.lock().await;
-        let events_task = runtime_arc.spawn(async move {
-            while let Ok(res) = events_receiver.recv().await {
-                match res {
-                    Ok(event) => {
-                        match Self::ignore(&event) {
-                            true => {},
-                            false => {
-                                Logger::log_debug_string(&format!("not ignoring event of kind: {:?}", &event.kind));
-                                Self::handle_modifying_event(
-                                    event, 
-                                    root_dir.clone(), 
-                                    scripts.clone(), 
-                                    subscribe_channel.clone()
-                                );
+    ) -> Result<(), TryLockError> {
+        Logger::log_info_string(&"spawned event watching thread".to_string());
+        while let Ok(res) = events_receiver.recv().await {
+            match res {
+                Ok(event) => {
+                    match Self::ignore(&event) {
+                        true => {
+                            Logger::log_debug_string(&format!("ignoring event of kind: {:?}", &event.kind));
+                        },
+                        false => {
+                            Logger::log_debug_string(&format!("not ignoring event of kind: {:?}", &event.kind));
+                            let unique_event_home_dirs = Self::get_unique_event_home_dirs(
+                                &event, 
+                                root_dir.clone(),
+                            );
+                            for event_home_dir in unique_event_home_dirs {
+                                let _ = subscribe_channel.send((event_home_dir, scripts.get_by_event(&event)));
                             }
-                        };
-                    },
-                    Err(e) => println!("watch error: {:?}", e),
-                }
+                        }
+                    };
+                },
+                Err(e) => println!("watch error: {:?}", e),
             }
-        });
-        events_task.await;
+        }
+        Ok(())
     } 
 
 }

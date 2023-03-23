@@ -1,6 +1,6 @@
 use std::{fs::{self}, collections::HashMap, path::{Path, PathBuf}};
 use log::{info, debug};
-use notify::{EventKind, event::{AccessKind}};
+use notify::{EventKind, event::{AccessKind}, Event};
 use serde::{Deserialize, Serialize};
 use super::watcher_errors::{script_error::ScriptError};
 
@@ -43,6 +43,14 @@ impl From<ScriptJSON> for Script {
 type ScriptsByEventTrigger = HashMap<EventKind, Vec<Script>>; // string identifies the event type, Vec<ScriptSchemas> are all scripts that should run on a given event
 
 impl WatcherScripts {
+
+    pub fn get_by_event(&self, event: &Event) -> Vec<Script> {
+        match self.scripts_by_event_triggers.get(&event.kind) { 
+            Some(scripts) => scripts.clone(),
+            None => return vec![]
+        }
+    }
+    
     pub fn ingest_configs(configs_path: &String) -> Result<Self, ScriptError> {
         let configs_file = fs::read_to_string(format!("{}/scripts_config.json", configs_path))?;
 
