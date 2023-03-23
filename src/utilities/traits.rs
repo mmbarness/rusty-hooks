@@ -21,7 +21,6 @@ pub trait Utilities {
             .thread_stack_size(3 * 1024 * 1024)
             .enable_time()
             .build()
-            .unwrap()
     }
 
     fn new_timer(wait_duration: i64) -> Timer {

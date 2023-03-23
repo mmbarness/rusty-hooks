@@ -2,7 +2,7 @@ use std::{fs, collections::HashMap, path::{Path, PathBuf}};
 use log::{info, debug};
 use notify::{EventKind, event::{AccessKind}, Event};
 use serde::{Deserialize, Serialize};
-use super::watcher_errors::{script_error::ScriptError};
+use crate::errors::watcher_errors::script_error::ScriptError;
 
 #[derive(Debug, Clone)]
 pub struct WatcherScripts {

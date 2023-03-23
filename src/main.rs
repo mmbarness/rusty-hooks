@@ -4,6 +4,7 @@
 #![feature(async_closure)]
 #![feature(is_some_and)]
 mod logger;
+mod errors;
 mod watcher;
 mod runner;
 mod utilities;
