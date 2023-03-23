@@ -1,5 +1,5 @@
 use std::fmt;
-use super::{event_error::{EventTypeError, EventError}, thread_error::ThreadError, script_error::ScriptError, path_error::PathError};
+use super::{event_error::EventError, thread_error::ThreadError, script_error::ScriptError, path_error::PathError};
 
 impl std::error::Error for WatcherError {}
 
@@ -23,6 +23,12 @@ impl fmt::Display for WatcherError {
             WatcherError::ScriptError(e) => 
                 write!(f, "error handling user scripts: {}", e),
         }
+    }
+}
+
+impl From<ScriptError> for WatcherError {
+    fn from(value: ScriptError) -> Self {
+        WatcherError::ScriptError(value)
     }
 }
 

@@ -2,7 +2,7 @@ use std::{fs, collections::HashMap, path::{Path, PathBuf}};
 use log::{info, debug};
 use notify::{EventKind, event::{AccessKind}, Event};
 use serde::{Deserialize, Serialize};
-use crate::errors::watcher_errors::script_error::ScriptError;
+use crate::errors::watcher_errors::{script_error::ScriptError, watcher_error::WatcherError};
 
 #[derive(Debug, Clone)]
 pub struct WatcherScripts {
@@ -51,10 +51,10 @@ impl WatcherScripts {
         }
     }
     
-    pub fn ingest_configs(configs_path: &String) -> Result<Self, ScriptError> {
-        let configs_file = fs::read_to_string(format!("{}/scripts_config.json", configs_path))?;
+    pub fn ingest_configs(configs_path: &String) -> Result<Self, WatcherError> {
+        let configs_file = fs::read_to_string(format!("{}/scripts_config.json", configs_path)).map_err(|e| ScriptError::IoError(e))?;
 
-        let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file)?;
+        let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(|e| WatcherError::ScriptError(e.into()))?;
 
         for file in &files {
             let message = serde_json::to_string_pretty(&file);
@@ -71,7 +71,7 @@ impl WatcherScripts {
             is_executable::is_executable(as_path)
         }) {
             true => {},
-            false => return Err(ScriptError::GenericMessage("unable to validate scripts folder".into())),
+            false => return Err(ScriptError::GenericMessage("unable to validate scripts folder".into()).into()),
         }
         let scripts_by_event_triggers = Self::cache_scripts_by_events(&files);
         debug!("all scripts by event type: {:?}", &scripts_by_event_triggers);
