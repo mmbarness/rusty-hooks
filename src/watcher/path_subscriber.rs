@@ -106,14 +106,14 @@ impl PathSubscriber {
         events_thread.abort();
     }
 
-    fn lock_and_update_paths<'a>(new_path:PathBuf, paths: Arc<std::sync::Mutex<HashMap<PathHash, (PathBuf, Vec<Script>)>>>, scripts: Vec<Script>) -> Result<bool, ThreadError<'a>> {
+    fn lock_and_update_paths(new_path:PathBuf, paths: Arc<std::sync::Mutex<HashMap<PathHash, (PathBuf, Vec<Script>)>>>, scripts: Vec<Script>) -> Result<bool, ThreadError> {
         let mut paths_lock = match paths.lock() {
             Ok(path) => path,
             Err(e) => {
                 let poison_error_message = e.to_string();
                 let message = format!("unable to lock onto watched paths structure whilst receiving new path subscription: {}", poison_error_message);
                 Logger::log_error_string(&format!("{}", &message));
-                let thread_error = ThreadError::PathsLockError(e);
+                let thread_error = ThreadError::LockError(poison_error_message);
                 // handle the poison error better here  - https://users.rust-lang.org/t/mutex-poisoning-why-and-how-to-recover/72192/12#:~:text=You%20can%20ignore%20the%20poisoning%20by%20turning,value%20back%20into%20a%20non%2Dbroken%20state.
                 // TODO: implement a path cache, so that in the event of a poison error the path is reset to the cache?
                 return Ok(false)
@@ -131,16 +131,16 @@ impl PathSubscriber {
         Ok(should_add_path)
     }
 
-    pub async fn route_subscriptions(&self, events_listener: BroadcastSender<EventMessage>, spawn_channel: BroadcastSender<SpawnMessage>) -> () {
+    pub async fn route_subscriptions(&self, events_listener: BroadcastSender<EventMessage>, spawn_channel: BroadcastSender<SpawnMessage>) -> Result<(), ThreadError> {
         let mut subscription_listener = self.subscribe_channel.0.subscribe();
         let paths = self.paths.clone();
-        let wait_threads = Self::new_runtime(4, &"timer-threads".to_string());
+        let wait_threads = Self::new_runtime(4, &"timer-threads".to_string())?;
         while let Ok((path, scripts)) = subscription_listener.recv().await {
             let events = events_listener.subscribe();
             let subscribed_to_new_path = match Self::lock_and_update_paths(path.clone(), paths.clone(), scripts.clone()) {
                 Ok(subscribed) => subscribed,
                 Err(e) => {
-                    return ();
+                    return Ok(());
                 }
             };
             let path_str = path.to_str().unwrap_or("unable to read incoming path into string");
@@ -170,6 +170,8 @@ impl PathSubscriber {
         }
 
         wait_threads.shutdown_timeout(Duration::from_secs(10));
+
+        Ok(())
     
     }
     }

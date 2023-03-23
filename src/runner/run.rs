@@ -1,20 +1,23 @@
 use std::{path::{PathBuf}, sync::{Mutex, Arc}, time::Duration};
 use async_process::{Command, Output};
 use futures::future::try_join_all;
-use crate::{logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}, watcher::{watcher_errors::script_error::ScriptError, watcher_scripts::Script}, utilities::traits::Utilities};
+use crate::{logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}, errors::watcher_errors::thread_error::ThreadError};
+use crate::errors::watcher_errors::script_error::ScriptError;
+use crate::utilities::traits::Utilities;
+use crate::watcher::watcher_scripts::Script;
 use super::structs::Runner;
 
 impl Runner {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, ThreadError> {
         let spawn_channel = <Self as Utilities>::new_channel::<(PathBuf, Vec<Script>)>();
         let unsubscribe_broadcast_channel = <Self as Utilities>::new_channel::<PathBuf>();
-        let script_runtime = <Self as Utilities>::new_runtime(4, &"script-runner".to_string());
+        let script_runtime = <Self as Utilities>::new_runtime(4, &"script-runner".to_string())?;
         let script_runtime_arc = Arc::new(Mutex::new(script_runtime));
-        Runner {
+        Ok(Runner {
             runtime: script_runtime_arc,
             spawn_channel,
             unsubscribe_broadcast_channel
-        }
+        })
     }
 
     pub async fn init(&self) {

@@ -2,19 +2,19 @@ use tokio::{sync::{Mutex, broadcast::Sender, TryLockError}, task::JoinHandle};
 use std::{sync::Arc, path::PathBuf};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher, Config};
 use std::path::Path;
-use crate::logger::{r#struct::Logger, info::InfoLogging, debug::DebugLogging};
+use crate::{logger::{r#struct::Logger, info::InfoLogging, debug::DebugLogging}, errors::watcher_errors::{thread_error::ThreadError, watcher_error::WatcherError}};
 use crate::utilities::{traits::Utilities, thread_types::{EventChannel, BroadcastSender}};
 use crate::runner::types::SpawnMessage;
 use super::watcher_scripts::{WatcherScripts, Script};
 use super::structs::{PathSubscriber, Watcher};
 
 impl Watcher {
-    pub fn new() -> Self {
-        let watcher_runtime = <Self as Utilities>::new_runtime(4, &"watcher-runtime".to_string());
-        Watcher {
+    pub fn new() -> Result<Self, WatcherError> {
+        let watcher_runtime = <Self as Utilities>::new_runtime(4, &"watcher-runtime".to_string())?;
+        Ok(Watcher {
             runtime: Arc::new(Mutex::new(watcher_runtime)),
             subscriber: Arc::new(tokio::sync::Mutex::new(PathSubscriber::new())),
-        }
+        })
     }
 
     pub async fn start(&self, spawn_channel: Sender<(PathBuf, Vec<Script>)>, watch_path: String, scripts: &WatcherScripts) -> Result<(), notify::Error>{
