@@ -1,16 +1,12 @@
-use std::{path::PathBuf, time::{Duration}, collections::{HashMap, hash_map::DefaultHasher}, sync::{Arc}};
-use tokio::{sync::{Mutex},time::{sleep}};
-use crate::{logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}, runner::types::SubscribeMessage, utilities::r#trait::Utilities};
-use super::{watcher_scripts::{Script}, watcher_errors::{thread_error::ThreadError, timer_error::TimerError, path_error::PathError}, types::{SubscribeChannel, UnsubscribeChannel, PathHash, PathsCache, TimerController, BroadcastReceiver, EventMessage, BroadcastSender}};
+use std::{path::PathBuf, time::Duration, collections::HashMap, sync::Arc};
+use crate::{runner::types::SpawnMessage};
+use crate::utilities::{thread_types::{BroadcastReceiver, EventMessage, BroadcastSender}, traits::Utilities};
+use crate::logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
+use super::watcher_scripts::Script;
+use super::structs::PathSubscriber;
+use super::watcher_errors::{thread_error::ThreadError,path_error::PathError};
+use super::types::{PathHash, PathsCache};
 
-#[derive(Debug)]
-pub struct PathSubscriber {
-    pub paths: Arc<std::sync::Mutex<HashMap<PathHash, (PathBuf, Vec<Script>)>>>,
-    pub subscribe_channel: SubscribeChannel,
-    pub unsubscribe_channel: UnsubscribeChannel
-}
-
-impl Utilities for PathSubscriber {}
 
 impl PathSubscriber {
     pub fn new() -> Self {
@@ -18,7 +14,7 @@ impl PathSubscriber {
         let paths = Arc::new(std::sync::Mutex::new(path_cache));
         PathSubscriber {
             paths,
-            subscribe_channel: Self::new_channel::<SubscribeMessage>(),
+            subscribe_channel: Self::new_channel::<SpawnMessage>(),
             unsubscribe_channel: Self::new_channel::<PathBuf>(),
         }
     }
@@ -136,7 +132,7 @@ impl PathSubscriber {
         Ok(should_add_path)
     }
 
-    pub async fn route_subscriptions(&self, events_listener: BroadcastSender<EventMessage>, spawn_channel: BroadcastSender<SubscribeMessage>) -> () {
+    pub async fn route_subscriptions(&self, events_listener: BroadcastSender<EventMessage>, spawn_channel: BroadcastSender<SpawnMessage>) -> () {
         let mut subscription_listener = self.subscribe_channel.0.subscribe();
         let paths = self.paths.clone();
         let wait_threads = Self::new_runtime(4, &"timer-threads".to_string());

@@ -1,6 +1,6 @@
 use std::{path::{PathBuf}, sync::{Mutex, Arc}};
 use tokio::sync::broadcast::{Receiver, Sender};
-use crate::{watcher::watcher_scripts::Script, utilities::r#trait::Utilities};
+use crate::{watcher::watcher_scripts::Script, utilities::traits::Utilities};
 
 pub struct Runner {
     pub runtime: Arc<Mutex<tokio::runtime::Runtime>>,

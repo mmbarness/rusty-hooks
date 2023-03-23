@@ -3,15 +3,15 @@
 #![feature(trait_alias)]
 #![feature(async_closure)]
 #![feature(is_some_and)]
-use logger::{r#struct::Logger, error::ErrorLogging};
-use runner::r#struct::Runner;
-use tokio::{sync::{broadcast::{Sender}}};
-use std::{path::PathBuf};
-use watcher::{configs, watcher_scripts::{WatcherScripts, Script}, r#struct::Watcher};
 mod logger;
 mod watcher;
 mod runner;
 mod utilities;
+
+use logger::{r#struct::Logger, error::ErrorLogging};
+use runner::structs::Runner;
+use watcher::{configs, watcher_scripts::WatcherScripts, structs::Watcher};
+use utilities::thread_types::SubscribeSender;
 
 #[tokio::main]
 async fn main() {
@@ -28,7 +28,7 @@ async fn main() {
     runner_task.abort();
 }
 
-async fn initialize_watchers(spawn_channel: Sender<(PathBuf, Vec<Script>)>) {
+async fn initialize_watchers(spawn_channel: SubscribeSender) {
     Logger::on_load();
     let api_configs = match configs::Configs::load() {
         Ok(c) => c,

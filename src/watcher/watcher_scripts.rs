@@ -1,4 +1,4 @@
-use std::{fs::{self}, collections::HashMap, path::{Path, PathBuf}};
+use std::{fs, collections::HashMap, path::{Path, PathBuf}};
 use log::{info, debug};
 use notify::{EventKind, event::{AccessKind}, Event};
 use serde::{Deserialize, Serialize};

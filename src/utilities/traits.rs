@@ -1,6 +1,6 @@
-use std::{collections::hash_map::DefaultHasher, hash::{Hash, Hasher}, sync::{Arc}};
-use tokio::{runtime::Runtime};
-use crate::watcher::types::Channel;
+use std::{collections::hash_map::DefaultHasher, hash::{Hash, Hasher}};
+use tokio::runtime::Runtime;
+use crate::utilities::thread_types::Channel;
 use crate::utilities::timer::Timer;
 
 pub trait Utilities {

@@ -1,9 +1,12 @@
-use tokio::{sync::{TryLockError}};
+use tokio::sync::{TryLockError};
 use std::{path::PathBuf, collections::{hash_map::DefaultHasher, HashSet}};
 use notify::{Event, event::ModifyKind, EventKind};
-use std::{hash::{Hash,Hasher}};
+use std::hash::{Hash,Hasher};
 use crate::logger::{r#struct::Logger,debug::DebugLogging,  error::ErrorLogging};
-use super::{watcher_errors::path_error::PathError, watcher_scripts::{WatcherScripts}, types::{EventsReceiver, SubscribeSender}, r#struct::Watcher};
+use super::structs::Watcher;
+use super::watcher_errors::path_error::PathError;
+use super::watcher_scripts::WatcherScripts;
+use crate::utilities::thread_types::{EventsReceiver, SubscribeSender};
 
 impl Watcher {
     pub fn hasher(path: &PathBuf) -> Result<u64, PathError> {

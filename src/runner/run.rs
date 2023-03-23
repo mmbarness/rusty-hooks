@@ -1,8 +1,8 @@
 use std::{path::{PathBuf}, sync::{Mutex, Arc}, time::Duration};
 use async_process::{Command, Output};
 use futures::future::try_join_all;
-use crate::{logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}, watcher::{watcher_errors::script_error::ScriptError, watcher_scripts::Script}, utilities::r#trait::Utilities};
-use super::r#struct::Runner;
+use crate::{logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}, watcher::{watcher_errors::script_error::ScriptError, watcher_scripts::Script}, utilities::traits::Utilities};
+use super::structs::Runner;
 
 impl Runner {
     pub fn new() -> Self {

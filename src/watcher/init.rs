@@ -1,9 +1,12 @@
 use tokio::{sync::{Mutex, broadcast::Sender, TryLockError}, task::JoinHandle};
 use std::{sync::Arc, path::PathBuf};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher, Config};
-use std::{path::Path};
-use crate::{logger::{r#struct::Logger, info::InfoLogging, debug::DebugLogging}, runner::types::SubscribeMessage, utilities::r#trait::Utilities};
-use super::{watcher_scripts::{WatcherScripts, Script}, types::{EventChannel, BroadcastSender}, path_subscriber::PathSubscriber, r#struct::Watcher};
+use std::path::Path;
+use crate::logger::{r#struct::Logger, info::InfoLogging, debug::DebugLogging};
+use crate::utilities::{traits::Utilities, thread_types::{EventChannel, BroadcastSender}};
+use crate::runner::types::SpawnMessage;
+use super::watcher_scripts::{WatcherScripts, Script};
+use super::structs::{PathSubscriber, Watcher};
 
 impl Watcher {
     pub fn new() -> Self {
@@ -50,7 +53,7 @@ impl Watcher {
     async fn watch_handler<P: AsRef<Path>>(
         &self,
         runtime_arc: Arc<Mutex<tokio::runtime::Runtime>>, 
-        spawn_channel: BroadcastSender<SubscribeMessage>,
+        spawn_channel: BroadcastSender<SpawnMessage>,
         root_watch_path: P, 
         scripts: WatcherScripts
     ) -> notify::Result<()> {
