@@ -5,12 +5,13 @@
 #![feature(is_some_and)]
 use logger::{r#struct::Logger, error::ErrorLogging};
 use runner::r#struct::Runner;
-use tokio::{sync::{Mutex, broadcast::{Sender}},runtime::Builder};
-use std::{sync::Arc, path::PathBuf};
-use watcher::{configs, watcher_scripts::{WatcherScripts, Script}, init::Watcher};
+use tokio::{sync::{broadcast::{Sender}}};
+use std::{path::PathBuf};
+use watcher::{configs, watcher_scripts::{WatcherScripts, Script}, r#struct::Watcher};
 mod logger;
 mod watcher;
 mod runner;
+mod utilities;
 
 #[tokio::main]
 async fn main() {
