@@ -1,8 +1,6 @@
 use std::fmt;
 use crate::errors::script_errors::script_error::ScriptError;
-
 use super::{event_error::EventError, thread_error::ThreadError, path_error::PathError};
-
 impl std::error::Error for WatcherError {}
 
 #[derive(Debug)]
