@@ -1,2 +1,2 @@
 pub mod load;
-pub mod r#struct;
+pub mod structs;

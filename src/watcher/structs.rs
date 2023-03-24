@@ -2,7 +2,7 @@ use tokio::{sync::Mutex, runtime::Runtime};
 use std::sync::Arc;
 use std::{path::PathBuf, collections::HashMap};
 use super::types::PathHash;
-use crate::scripts::r#struct::Script;
+use crate::scripts::structs::Script;
 use crate::utilities::{thread_types::{SubscribeChannel, UnsubscribeChannel}, traits::Utilities};
 
 #[derive(Debug)]

@@ -1,9 +1,9 @@
 use std::{fs, path::Path, collections::HashMap};
 use log::{info, debug};
 use notify::{Event, EventKind, event::AccessKind};
-use crate::scripts::r#struct::ScriptJSON;
+use crate::scripts::structs::ScriptJSON;
 use crate::errors::script_errors::script_error::ScriptError;
-use super::r#struct::{Scripts, Script, ScriptsByEventTrigger};
+use super::structs::{Scripts, Script, ScriptsByEventTrigger};
 
 impl Scripts {
     pub fn get_by_event(&self, event: &Event) -> Vec<Script> {

@@ -11,9 +11,9 @@ mod scripts;
 mod utilities;
 
 use errors::watcher_errors::{watcher_error::WatcherError, event_error::EventError};
-use logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging};
+use logger::{structs::Logger, error::ErrorLogging, info::InfoLogging};
 use runner::structs::Runner;
-use scripts::r#struct::Scripts;
+use scripts::structs::Scripts;
 use watcher::{configs, structs::Watcher};
 use utilities::thread_types::SubscribeSender;
 
