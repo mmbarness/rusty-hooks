@@ -1,49 +1,12 @@
-use std::{fs, collections::HashMap, path::{Path, PathBuf}};
+use std::{fs, path::Path, collections::HashMap};
+
 use log::{info, debug};
-use notify::{EventKind, event::{AccessKind}, Event};
-use serde::{Deserialize, Serialize};
-use crate::errors::watcher_errors::{script_error::ScriptError, watcher_error::WatcherError};
+use notify::{Event, EventKind, event::AccessKind};
+use crate::{scripts::r#struct::ScriptJSON, errors::script_errors::script_error::ScriptError};
 
-#[derive(Debug, Clone)]
-pub struct WatcherScripts {
-    pub scripts_by_event_triggers: ScriptsByEventTrigger,
-}
+use super::r#struct::{Scripts, Script, ScriptsByEventTrigger};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ScriptJSON {
-    pub event_triggers: Vec<String>,
-    pub file_name: String,
-    pub failed: Option<bool>,
-    pub run_delay: u8,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Script {
-    pub event_triggers: Vec<String>,
-    pub file_path: PathBuf,
-    pub file_name: String,
-    pub failed: Option<bool>,
-    pub run_delay: u8,
-}
-
-impl From<ScriptJSON> for Script {
-    fn from(json: ScriptJSON) -> Self {
-        let path_string = format!("./scripts/{}", json.file_name.clone());
-        let as_path = Path::new(&path_string).to_path_buf();
-        Script {
-            event_triggers: json.event_triggers,
-            file_path: as_path,
-            file_name: json.file_name,
-            failed: json.failed,
-            run_delay: json.run_delay
-        }
-    }
-}
-
-type ScriptsByEventTrigger = HashMap<EventKind, Vec<Script>>; // string identifies the event type, Vec<ScriptSchemas> are all scripts that should run on a given event
-
-impl WatcherScripts {
-
+impl Scripts {
     pub fn get_by_event(&self, event: &Event) -> Vec<Script> {
         match self.scripts_by_event_triggers.get(&event.kind) { 
             Some(scripts) => scripts.clone(),
@@ -51,10 +14,10 @@ impl WatcherScripts {
         }
     }
     
-    pub fn ingest_configs(configs_path: &String) -> Result<Self, WatcherError> {
+    pub fn ingest_configs(configs_path: &String) -> Result<Self, ScriptError> {
         let configs_file = fs::read_to_string(format!("{}/scripts_config.json", configs_path)).map_err(|e| ScriptError::IoError(e))?;
 
-        let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(|e| WatcherError::ScriptError(e.into()))?;
+        let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file)?;
 
         for file in &files {
             let message = serde_json::to_string_pretty(&file);
@@ -73,9 +36,7 @@ impl WatcherScripts {
             true => {},
             false => return Err(ScriptError::GenericMessage("unable to validate scripts folder".into()).into()),
         }
-        let scripts_by_event_triggers = Self::cache_scripts_by_events(&files);
-        debug!("all scripts by event type: {:?}", &scripts_by_event_triggers);
-        Ok(WatcherScripts{
+        let scripts_by_event_triggers = Self::cache_scripts_by_events(&files);        Ok(Scripts{
             scripts_by_event_triggers,
         })
     }

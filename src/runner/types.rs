@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use crate::watcher::watcher_scripts::Script;
+use crate::scripts::r#struct::Script;
 
 pub type SpawnMessage = (PathBuf, Vec<Script>);
 // pub type SpawnChannel = 

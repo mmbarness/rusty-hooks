@@ -1,8 +1,8 @@
 use std::{path::PathBuf, time::Duration, collections::HashMap, sync::Arc};
-use crate::{runner::types::SpawnMessage};
+use crate::scripts::r#struct::Script;
+use crate::runner::types::SpawnMessage;
 use crate::utilities::{thread_types::{BroadcastReceiver, EventMessage, BroadcastSender}, traits::Utilities};
 use crate::logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
-use super::watcher_scripts::Script;
 use super::structs::PathSubscriber;
 use crate::errors::watcher_errors::{thread_error::ThreadError,path_error::PathError};
 use super::types::{PathHash, PathsCache};

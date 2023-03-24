@@ -1,5 +1,5 @@
 use std::{fmt, str::FromStr};
-use super::spawn_error::SpawnError;
+use crate::errors::watcher_errors::spawn_error::SpawnError;
 
 #[derive(Debug)]
 pub enum ScriptError {

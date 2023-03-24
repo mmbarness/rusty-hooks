@@ -7,12 +7,14 @@ mod logger;
 mod errors;
 mod watcher;
 mod runner;
+mod scripts;
 mod utilities;
 
-use errors::watcher_errors::{thread_error::ThreadError, watcher_error::WatcherError, event_error::EventError};
+use errors::watcher_errors::{watcher_error::WatcherError, event_error::EventError};
 use logger::{r#struct::Logger, error::ErrorLogging};
 use runner::structs::Runner;
-use watcher::{configs, watcher_scripts::WatcherScripts, structs::Watcher};
+use scripts::r#struct::Scripts;
+use watcher::{configs, structs::Watcher};
 use utilities::thread_types::SubscribeSender;
 
 use crate::logger::info::InfoLogging;
@@ -68,7 +70,7 @@ async fn initialize_watchers(spawn_channel: SubscribeSender) -> Result<(), Watch
     
     let scripts_path = api_configs.scripts_path.clone();
     
-    let watcher_scripts = match WatcherScripts::ingest_configs(&scripts_path) {
+    let watcher_scripts = match Scripts::ingest_configs(&scripts_path) {
         Ok(script_records) => script_records,
         Err(e) => {
             Logger::log_error_string(&format!("error loading configs: {}", e.to_string()));

@@ -2,10 +2,9 @@ use tokio::{sync::{Mutex, broadcast::Sender, TryLockError}, task::JoinHandle};
 use std::{sync::Arc, path::PathBuf};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher, Config};
 use std::path::Path;
-use crate::{logger::{r#struct::Logger, info::InfoLogging, debug::DebugLogging}, errors::watcher_errors::{thread_error::ThreadError, watcher_error::WatcherError}};
+use crate::{logger::{r#struct::Logger, info::InfoLogging, debug::DebugLogging}, errors::watcher_errors::{thread_error::ThreadError, watcher_error::WatcherError}, scripts::r#struct::{Scripts, Script}};
 use crate::utilities::{traits::Utilities, thread_types::{EventChannel, BroadcastSender}};
 use crate::runner::types::SpawnMessage;
-use super::watcher_scripts::{WatcherScripts, Script};
 use super::structs::{PathSubscriber, Watcher};
 
 impl Watcher {
@@ -17,7 +16,7 @@ impl Watcher {
         })
     }
 
-    pub async fn start(&self, spawn_channel: Sender<(PathBuf, Vec<Script>)>, watch_path: String, scripts: &WatcherScripts) -> Result<(), notify::Error>{
+    pub async fn start(&self, spawn_channel: Sender<(PathBuf, Vec<Script>)>, watch_path: String, scripts: &Scripts) -> Result<(), notify::Error>{
         let scripts_clone = scripts.clone();
         Self::watch_handler(&self, self.runtime.clone(), spawn_channel,  watch_path, scripts_clone).await
     }
@@ -55,7 +54,7 @@ impl Watcher {
         runtime_arc: Arc<Mutex<tokio::runtime::Runtime>>, 
         spawn_channel: BroadcastSender<SpawnMessage>,
         root_watch_path: P, 
-        scripts: WatcherScripts
+        scripts: Scripts
     ) -> notify::Result<()> {
         let root_dir =root_watch_path.as_ref().to_path_buf();
         let (mut notifier_handle, (broadcast_sender, events)) = Self::notifier_task()?;
