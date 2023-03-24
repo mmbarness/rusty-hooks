@@ -2,9 +2,10 @@ use tokio::sync::{TryLockError};
 use std::{path::PathBuf, collections::{hash_map::DefaultHasher, HashSet}};
 use notify::{Event, event::ModifyKind, EventKind};
 use std::hash::{Hash,Hasher};
-use crate::{logger::{r#struct::Logger,debug::DebugLogging, error::ErrorLogging}, scripts::r#struct::Scripts};
-use super::structs::Watcher;
 use crate::errors::watcher_errors::path_error::PathError;
+use crate::logger::{r#struct::Logger,debug::DebugLogging, error::ErrorLogging};
+use crate::scripts::r#struct::Scripts;
+use super::structs::Watcher;
 use crate::utilities::thread_types::{EventsReceiver, SubscribeSender};
 
 impl Watcher {

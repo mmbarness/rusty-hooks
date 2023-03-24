@@ -1,7 +1,9 @@
 use std::{path::{PathBuf}, sync::{Mutex, Arc}, time::Duration};
 use async_process::{Command, Output};
 use futures::future::try_join_all;
-use crate::{logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}, errors::watcher_errors::thread_error::ThreadError, scripts::r#struct::Script};
+use crate::logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
+use crate::scripts::r#struct::Script;
+use crate::errors::watcher_errors::thread_error::ThreadError;
 use crate::errors::script_errors::script_error::ScriptError;
 use crate::utilities::traits::Utilities;
 use super::structs::Runner;

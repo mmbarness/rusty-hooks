@@ -1,9 +1,8 @@
 use std::{fs, path::Path, collections::HashMap};
-
 use log::{info, debug};
 use notify::{Event, EventKind, event::AccessKind};
-use crate::{scripts::r#struct::ScriptJSON, errors::script_errors::script_error::ScriptError};
-
+use crate::scripts::r#struct::ScriptJSON;
+use crate::errors::script_errors::script_error::ScriptError;
 use super::r#struct::{Scripts, Script, ScriptsByEventTrigger};
 
 impl Scripts {

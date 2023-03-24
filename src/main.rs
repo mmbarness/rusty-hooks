@@ -11,13 +11,11 @@ mod scripts;
 mod utilities;
 
 use errors::watcher_errors::{watcher_error::WatcherError, event_error::EventError};
-use logger::{r#struct::Logger, error::ErrorLogging};
+use logger::{r#struct::Logger, error::ErrorLogging, info::InfoLogging};
 use runner::structs::Runner;
 use scripts::r#struct::Scripts;
 use watcher::{configs, structs::Watcher};
 use utilities::thread_types::SubscribeSender;
-
-use crate::logger::info::InfoLogging;
 
 #[tokio::main]
 async fn main() {
