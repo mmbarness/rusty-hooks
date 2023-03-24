@@ -28,7 +28,7 @@ impl Scripts {
             if !valid_so_far {
                 return valid_so_far
             }
-            let path_string = format!("./scripts/{}", current.file_name.clone());
+            let path_string = format!("./{}/{}", configs_path.clone(), current.file_name.clone());
             info!("path of identified script: {}", path_string);
             let as_path = Path::new(&path_string);
             is_executable::is_executable(as_path)
