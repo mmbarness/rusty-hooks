@@ -3,18 +3,23 @@
 #![feature(trait_alias)]
 #![feature(async_closure)]
 #![feature(is_some_and)]
-use logger::{r#struct::Logger, error::ErrorLogging};
-use runner::r#struct::Runner;
-use tokio::{sync::{Mutex, broadcast::{Sender}},runtime::Builder};
-use std::{sync::Arc, path::PathBuf};
-use watcher::{configs, watcher_scripts::{WatcherScripts, Script}, init::Watcher};
 mod logger;
+mod errors;
 mod watcher;
 mod runner;
+mod utilities;
+
+use errors::watcher_errors::{thread_error::ThreadError, watcher_error::WatcherError, event_error::EventError};
+use logger::{r#struct::Logger, error::ErrorLogging};
+use runner::structs::Runner;
+use watcher::{configs, watcher_scripts::WatcherScripts, structs::Watcher};
+use utilities::thread_types::SubscribeSender;
+
+use crate::logger::info::InfoLogging;
 
 #[tokio::main]
 async fn main() {
-    let runner = Runner::new();
+    let runner = Runner::new().unwrap(); // if we cant get a runner up we should panic
     
     let spawn_channel = runner.spawn_channel.0.clone();
 
@@ -22,12 +27,36 @@ async fn main() {
         runner.init().await
     });
     
-    initialize_watchers(spawn_channel).await;
+    let watcher_task = initialize_watchers(spawn_channel);
 
-    runner_task.abort();
+    tokio::select! {
+        a = runner_task => {
+            match a {
+                Ok(_) => {
+                    Logger::log_info_string(&format!("runner task exited, cleaning up other tasks and exiting").to_string())
+                },
+                Err(e) => {
+                    Logger::log_error_string(&format!("runner task failed: {}", e).to_string());
+                    Logger::log_info_string(&format!("cleaning up other tasks and exiting"));
+                }
+            }
+        },
+        b = watcher_task => {
+            match b {
+                Ok(_) => {
+                    Logger::log_info_string(&format!("event watcher task exited, cleaning up other tasks and exiting").to_string())
+                },
+                Err(e) => {
+                    Logger::log_error_string(&format!("event watcher failed: {}", e).to_string());
+                    Logger::log_info_string(&format!("cleaning up other tasks and exiting"));
+                }
+            }
+        }
+    }
+
 }
 
-async fn initialize_watchers(spawn_channel: Sender<(PathBuf, Vec<Script>)>) {
+async fn initialize_watchers(spawn_channel: SubscribeSender) -> Result<(), WatcherError>{
     Logger::on_load();
     let api_configs = match configs::Configs::load() {
         Ok(c) => c,
@@ -51,15 +80,8 @@ async fn initialize_watchers(spawn_channel: Sender<(PathBuf, Vec<Script>)>) {
         .nth(2)
         .expect("Argument 1 needs to be a path");
 
-    let watcher = Watcher::new();
+    let watcher = Watcher::new()?;
 
-    match watcher.start(spawn_channel, root_watch_path, &watcher_scripts).await {
-        Ok(_) => {
-
-        },
-        Err(e) => {
-            Logger::log_error_string(&e.to_string())
-        }
-    }
+    Ok(watcher.start(spawn_channel, root_watch_path, &watcher_scripts).await.map_err(|e| { EventError::NotifyError(e) })?)
 
 }

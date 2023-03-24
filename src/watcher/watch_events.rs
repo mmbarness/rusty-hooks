@@ -1,9 +1,12 @@
-use tokio::{sync::{broadcast::{Receiver, Sender}, TryLockError}};
-use std::{path::PathBuf, collections::{hash_map::DefaultHasher, HashSet}, sync::Arc};
+use tokio::sync::{TryLockError};
+use std::{path::PathBuf, collections::{hash_map::DefaultHasher, HashSet}};
 use notify::{Event, event::ModifyKind, EventKind};
-use std::{hash::{Hash,Hasher}};
-use crate::logger::{r#struct::Logger,debug::DebugLogging, info::InfoLogging, error::ErrorLogging};
-use super::{init::Watcher, watcher_errors::path_error::PathError, watcher_scripts::{WatcherScripts, Script}};
+use std::hash::{Hash,Hasher};
+use crate::logger::{r#struct::Logger,debug::DebugLogging, error::ErrorLogging};
+use super::structs::Watcher;
+use crate::errors::watcher_errors::path_error::PathError;
+use super::watcher_scripts::WatcherScripts;
+use crate::utilities::thread_types::{EventsReceiver, SubscribeSender};
 
 impl Watcher {
     pub fn hasher(path: &PathBuf) -> Result<u64, PathError> {
@@ -65,14 +68,13 @@ impl Watcher {
         })
         
     }
- 
+
     pub async fn watch_events(
-        mut events_receiver: Receiver<Result<Event, Arc<notify::Error>>>,
+        mut events_receiver: EventsReceiver,
         root_dir: PathBuf,
         scripts: WatcherScripts,
-        subscribe_channel: Sender<(PathBuf, Vec<Script>)>
+        subscribe_channel: SubscribeSender
     ) -> Result<(), TryLockError> {
-        Logger::log_info_string(&"spawned event watching thread".to_string());
         while let Ok(res) = events_receiver.recv().await {
             match res {
                 Ok(event) => {
