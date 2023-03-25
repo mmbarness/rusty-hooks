@@ -8,7 +8,7 @@ use crate::utilities::{thread_types::{SubscribeChannel, UnsubscribeChannel}, tra
 #[derive(Debug)]
 pub struct Watcher {
     pub runtime: Arc<Mutex<Runtime>>,
-    pub subscriber: Arc<Mutex<PathSubscriber>>,
+    pub subscriber: PathSubscriber,
 }
 
 #[derive(Debug)]

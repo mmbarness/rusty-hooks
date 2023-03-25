@@ -80,7 +80,7 @@ impl Watcher {
                 Ok(event) => {
                     match Self::ignore(&event) {
                         true => {
-                            Logger::log_debug_string(&format!("ignoring event of kind: {:?}", &event.kind));
+                            // Logger::log_debug_string(&format!("ignoring event of kind: {:?}", &event.kind));
                         },
                         false => {
                             Logger::log_debug_string(&format!("not ignoring event of kind: {:?}", &event.kind));
@@ -89,7 +89,15 @@ impl Watcher {
                                 root_dir.clone(),
                             );
                             for event_home_dir in unique_event_home_dirs {
-                                let _ = subscribe_channel.send((event_home_dir, scripts.get_by_event(&event)));
+                                match subscribe_channel.send((event_home_dir, scripts.get_by_event(&event))) {
+                                    Ok(s) => {
+                                        Logger::log_debug_string(&"successfuly sent new path to subscription thread".to_string());
+                                        // Logger::log_debug_string(&format!("num of sub receivers: {}", subscribe_channel.receiver_count()));
+                                    },
+                                    Err(e) => {
+                                        Logger::log_error_string(&format!("error while attempting to subscribe to new path: {}", e))
+                                    }
+                                }
                             }
                         }
                     };

@@ -1,11 +1,14 @@
 use std::{collections::HashMap, path::{Path, PathBuf}};
 use notify::EventKind;
 use serde::{Deserialize, Serialize};
+use crate::utilities::traits::Utilities;
 
 #[derive(Debug, Clone)]
 pub struct Scripts {
     pub scripts_by_event_triggers: ScriptsByEventTrigger,
 }
+
+impl Utilities for Scripts {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ScriptJSON {
@@ -24,6 +27,8 @@ pub struct Script {
     pub run_delay: u8,
 }
 
+impl Utilities for Script {}
+
 impl From<ScriptJSON> for Script {
     fn from(json: ScriptJSON) -> Self {
         let path_string = format!("./scripts/{}", json.file_name.clone());
@@ -32,6 +37,20 @@ impl From<ScriptJSON> for Script {
             event_triggers: json.event_triggers,
             file_path: as_path,
             file_name: json.file_name,
+            failed: json.failed,
+            run_delay: json.run_delay
+        }
+    }
+}
+
+impl From<&ScriptJSON> for Script {
+    fn from(json: &ScriptJSON) -> Self {
+        let path_string = format!("./scripts/{}", json.file_name.clone());
+        let as_path = Path::new(&path_string).to_path_buf();
+        Script {
+            event_triggers: json.event_triggers.clone(),
+            file_path: as_path,
+            file_name: json.file_name.clone(),
             failed: json.failed,
             run_delay: json.run_delay
         }

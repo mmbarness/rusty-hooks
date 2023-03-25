@@ -1,11 +1,12 @@
 use std::{path::PathBuf, time::Duration, collections::HashMap, sync::Arc};
 use crate::scripts::structs::Script;
 use crate::runner::types::SpawnMessage;
+use crate::utilities::thread_types::UnsubscribeChannel;
 use crate::utilities::{thread_types::{BroadcastReceiver, EventMessage, BroadcastSender}, traits::Utilities};
 use crate::logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
 use super::structs::PathSubscriber;
 use crate::errors::watcher_errors::{thread_error::ThreadError,path_error::PathError};
-use super::types::{PathHash, PathsCache};
+use super::types::{PathHash, PathsCache, PathsCacheArc};
 
 impl PathSubscriber {
     pub fn new() -> Self {
@@ -27,11 +28,10 @@ impl PathSubscriber {
         }
     }
 
-    pub async fn unsubscribe_task(&self) -> () {
-        while let unvalidated_path = self.unsubscribe_channel.0.subscribe().recv().await {
+    pub async fn unsubscribe_task(unsubscribe_channel: BroadcastSender<PathBuf>, paths: PathsCacheArc) -> () {
+        while let unvalidated_path = unsubscribe_channel.subscribe().recv().await {
             match unvalidated_path {
                 Ok(path) => {
-                    let paths = self.paths.clone();
                     let paths = match paths.lock() {
                         Ok(p) => p,
                         Err(e) => {
@@ -131,43 +131,58 @@ impl PathSubscriber {
         Ok(should_add_path)
     }
 
-    pub async fn route_subscriptions(&self, events_listener: BroadcastSender<EventMessage>, spawn_channel: BroadcastSender<SpawnMessage>) -> Result<(), ThreadError> {
-        let mut subscription_listener = self.subscribe_channel.0.subscribe();
-        let paths = self.paths.clone();
+    pub async fn route_subscriptions(
+        events_listener: BroadcastSender<EventMessage>,
+        spawn_channel: BroadcastSender<SpawnMessage>,
+        subscribe_channel: BroadcastSender<(PathBuf, Vec<Script>)>,
+        paths: PathsCacheArc
+    ) -> Result<(), ThreadError> {
+        let mut subscription_listener = subscribe_channel.subscribe();
         let wait_threads = Self::new_runtime(4, &"timer-threads".to_string())?;
-        while let Ok((path, scripts)) = subscription_listener.recv().await {
-            let events = events_listener.subscribe();
-            let subscribed_to_new_path = match Self::lock_and_update_paths(path.clone(), paths.clone(), scripts.clone()) {
-                Ok(subscribed) => subscribed,
-                Err(e) => {
-                    return Ok(());
-                }
-            };
-            let path_str = path.to_str().unwrap_or("unable to read incoming path into string");
-            match subscribed_to_new_path {
-                true => {
-                    Logger::log_info_string(&format!("watching new path at {}",path_str));
-                },
-                false => {
-                    Logger::log_info_string(&format!("received new path subscription, but it's already being observed {}", path_str));
-                }
-            }
-            if subscribed_to_new_path {
-                let spawn_channel = spawn_channel.clone();
-                // TODO: create channel for a timer and event thread to communicate, and spawn both on wait threads so that start_waiting need not spawn its own
-                wait_threads.spawn(async move {
-                    Self::start_waiting(path.clone(), events).await;
-                    Logger::log_info_string(&"successfully waited on timer expiration, now running scripts".to_string());
-                    let stuff_to_send = (path.clone(), scripts);
-                    match spawn_channel.send(stuff_to_send) {
-                        Ok(_) => { Logger::log_debug_string(&"sent path and scripts to script runner over spawn channel".to_string())},
+        while let unvalidated_subscription = subscription_listener.recv().await {
+            match unvalidated_subscription {
+                Ok((path, scripts)) => {
+                    let path_string = path.to_str().unwrap_or(&"bad path parse");
+                    Logger::log_debug_string(&format!("new path: {}", path_string));
+                    let events = events_listener.subscribe();
+                    let subscribed_to_new_path = match Self::lock_and_update_paths(path.clone(), paths.clone(), scripts.clone()) {
+                        Ok(subscribed) => subscribed,
                         Err(e) => {
-                            Logger::log_error_string(&e.to_string())
+                            return Ok(());
+                        }
+                    };
+                    let path_str = path.to_str().unwrap_or("unable to read incoming path into string");
+                    match subscribed_to_new_path {
+                        true => {
+                            Logger::log_info_string(&format!("watching new path at {}",path_str));
+                        },
+                        false => {
+                            Logger::log_info_string(&format!("received new path subscription, but it's already being observed {}", path_str));
                         }
                     }
-                });
+                    if subscribed_to_new_path {
+                        let spawn_channel = spawn_channel.clone();
+                        // TODO: create channel for a timer and event thread to communicate, and spawn both on wait threads so that start_waiting need not spawn its own
+                        wait_threads.spawn(async move {
+                            Self::start_waiting(path.clone(), events).await;
+                            Logger::log_info_string(&"successfully waited on timer expiration, now running scripts".to_string());
+                            let stuff_to_send = (path.clone(), scripts);
+                            match spawn_channel.send(stuff_to_send) {
+                                Ok(_) => { Logger::log_debug_string(&"sent path and scripts to script runner over spawn channel".to_string())},
+                                Err(e) => {
+                                    Logger::log_error_string(&e.to_string())
+                                }
+                            }
+                        });
+                    }
+                },
+                Err(e) => {
+                    Logger::log_error_string(&format!("error while receiving new subscription: {}", e.to_string()))
+                }
             }
-        }
+        };
+
+        Logger::log_debug_string(&"exiting subscription watcher:".to_string());
 
         wait_threads.shutdown_timeout(Duration::from_secs(10));
 

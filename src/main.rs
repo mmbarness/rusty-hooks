@@ -3,6 +3,8 @@
 #![feature(trait_alias)]
 #![feature(async_closure)]
 #![feature(is_some_and)]
+#![feature(io_error_more)]
+#![feature(result_option_inspect)]
 mod logger;
 mod errors;
 mod watcher;
