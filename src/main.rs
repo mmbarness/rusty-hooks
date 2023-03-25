@@ -3,31 +3,35 @@
 #![feature(trait_alias)]
 #![feature(async_closure)]
 #![feature(is_some_and)]
+#![feature(io_error_more)]
+#![feature(result_option_inspect)]
+#![feature(fs_try_exists)]
 mod logger;
 mod errors;
 mod watcher;
 mod runner;
+mod scripts;
 mod utilities;
 
-use errors::watcher_errors::{thread_error::ThreadError, watcher_error::WatcherError, event_error::EventError};
-use logger::{r#struct::Logger, error::ErrorLogging};
+use errors::watcher_errors::{watcher_error::WatcherError, event_error::EventError};
+use logger::{structs::Logger, error::ErrorLogging, info::InfoLogging};
 use runner::structs::Runner;
-use watcher::{configs, watcher_scripts::WatcherScripts, structs::Watcher};
-use utilities::thread_types::SubscribeSender;
-
-use crate::logger::info::InfoLogging;
+use scripts::structs::Scripts;
+use watcher::{configs, structs::Watcher};
+use utilities::thread_types::{SpawnSender, UnsubscribeChannel, UnsubscribeSender};
 
 #[tokio::main]
 async fn main() {
     let runner = Runner::new().unwrap(); // if we cant get a runner up we should panic
     
     let spawn_channel = runner.spawn_channel.0.clone();
+    let unsubscribe_channel = runner.unsubscribe_broadcast_channel.0.clone();
 
     let runner_task = tokio::spawn(async move {
         runner.init().await
     });
     
-    let watcher_task = initialize_watchers(spawn_channel);
+    let watcher_task = initialize_watchers(spawn_channel, unsubscribe_channel);
 
     tokio::select! {
         a = runner_task => {
@@ -56,7 +60,7 @@ async fn main() {
 
 }
 
-async fn initialize_watchers(spawn_channel: SubscribeSender) -> Result<(), WatcherError>{
+async fn initialize_watchers(spawn_channel: SpawnSender, unsubscribe_channel: UnsubscribeSender) -> Result<(), WatcherError>{
     Logger::on_load();
     let api_configs = match configs::Configs::load() {
         Ok(c) => c,
@@ -68,7 +72,7 @@ async fn initialize_watchers(spawn_channel: SubscribeSender) -> Result<(), Watch
     
     let scripts_path = api_configs.scripts_path.clone();
     
-    let watcher_scripts = match WatcherScripts::ingest_configs(&scripts_path) {
+    let watcher_scripts = match Scripts::ingest_configs(&scripts_path) {
         Ok(script_records) => script_records,
         Err(e) => {
             Logger::log_error_string(&format!("error loading configs: {}", e.to_string()));
@@ -82,6 +86,6 @@ async fn initialize_watchers(spawn_channel: SubscribeSender) -> Result<(), Watch
 
     let watcher = Watcher::new()?;
 
-    Ok(watcher.start(spawn_channel, root_watch_path, &watcher_scripts).await.map_err(|e| { EventError::NotifyError(e) })?)
+    Ok(watcher.start(spawn_channel, unsubscribe_channel, root_watch_path, &watcher_scripts).await.map_err(|e| { EventError::NotifyError(e) })?)
 
 }

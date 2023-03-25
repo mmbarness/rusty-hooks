@@ -1,7 +1,5 @@
 use log::{log_enabled, Level, info};
-
 use super::error::ErrorLogging;
-
 
 pub struct Logger {}
 

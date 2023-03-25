@@ -2,10 +2,11 @@ use tokio::{sync::{Mutex, broadcast::Sender, TryLockError}, task::JoinHandle};
 use std::{sync::Arc, path::PathBuf};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher, Config};
 use std::path::Path;
-use crate::{logger::{r#struct::Logger, info::InfoLogging, debug::DebugLogging}, errors::watcher_errors::{thread_error::ThreadError, watcher_error::WatcherError}};
+use crate::{logger::{structs::Logger, info::InfoLogging, debug::DebugLogging, error::ErrorLogging}, utilities::thread_types::UnsubscribeSender};
+use crate::scripts::structs::{Scripts, Script};
+use crate::errors::watcher_errors::{watcher_error::WatcherError};
 use crate::utilities::{traits::Utilities, thread_types::{EventChannel, BroadcastSender}};
 use crate::runner::types::SpawnMessage;
-use super::watcher_scripts::{WatcherScripts, Script};
 use super::structs::{PathSubscriber, Watcher};
 
 impl Watcher {
@@ -13,13 +14,13 @@ impl Watcher {
         let watcher_runtime = <Self as Utilities>::new_runtime(4, &"watcher-runtime".to_string())?;
         Ok(Watcher {
             runtime: Arc::new(Mutex::new(watcher_runtime)),
-            subscriber: Arc::new(tokio::sync::Mutex::new(PathSubscriber::new())),
+            subscriber: PathSubscriber::new(),
         })
     }
 
-    pub async fn start(&self, spawn_channel: Sender<(PathBuf, Vec<Script>)>, watch_path: String, scripts: &WatcherScripts) -> Result<(), notify::Error>{
+    pub async fn start(&self, spawn_channel: Sender<(PathBuf, Vec<Script>)>, unsubscribe_channel: UnsubscribeSender, watch_path: String, scripts: &Scripts) -> Result<(), notify::Error>{
         let scripts_clone = scripts.clone();
-        Self::watch_handler(&self, self.runtime.clone(), spawn_channel,  watch_path, scripts_clone).await
+        Self::watch_handler(&self, self.runtime.clone(), spawn_channel,unsubscribe_channel,  watch_path, scripts_clone).await
     }
     
     fn notifier_task() -> notify::Result<(
@@ -32,9 +33,7 @@ impl Watcher {
             match res {
                 Ok(r) => {
                     match events_channel.send(Ok(r)) {
-                        Ok(_) => {
-                            Logger::log_debug_string(&format!("successfully sent new event- num existing receivers {}", events_channel.receiver_count()));
-                        },
+                        Ok(_) => {},
                         Err(e) => {
                             Logger::log_debug_string(&format!("{} - num existing receivers: {}", e.to_string(), events_channel.receiver_count()))
                         }
@@ -54,15 +53,20 @@ impl Watcher {
         &self,
         runtime_arc: Arc<Mutex<tokio::runtime::Runtime>>, 
         spawn_channel: BroadcastSender<SpawnMessage>,
+        unsubscribe_channel: UnsubscribeSender,
         root_watch_path: P, 
-        scripts: WatcherScripts
+        scripts: Scripts
     ) -> notify::Result<()> {
         let root_dir =root_watch_path.as_ref().to_path_buf();
         let (mut notifier_handle, (broadcast_sender, events)) = Self::notifier_task()?;
         notifier_handle.watch(root_watch_path.as_ref(), RecursiveMode::Recursive)?;
         
-        let (paths_subscriber_clone_1, paths_subscriber_clone_2) = (self.subscriber.clone(), self.subscriber.clone());
-        
+        // let (paths_subscriber_clone_1, paths_subscriber_clone_2) = (self.subscriber.clone(), self.subscriber.clone());
+        let subscriber_channel_1 = self.subscriber.subscribe_channel.0.clone();
+        let subscriber_channel_2 = self.subscriber.subscribe_channel.0.clone();
+        let paths_clone_1 = self.subscriber.paths.clone();
+        let paths_clone_2 = self.subscriber.paths.clone();
+
         let runtime_arc = match runtime_arc.try_lock() {
             Ok(r) => r,
             Err(e) => {
@@ -73,21 +77,26 @@ impl Watcher {
         
         let unsubscribe_task = runtime_arc.spawn(async move {
             Logger::log_debug_string(&"spawned unsubscribe thread".to_string());
-            let local_path_subscriber = paths_subscriber_clone_1.lock().await;
-            local_path_subscriber.unsubscribe_task().await;
+            PathSubscriber::unsubscribe_task(unsubscribe_channel, paths_clone_1).await;
         });
         
         let event_channel_for_path_subscriber = broadcast_sender.clone();
         // start watching for new path subscriptions coming from the event watcher
         let subscription_task = runtime_arc.spawn(async move {
             Logger::log_debug_string(&"spawned subscribe thread".to_string());
-            let local_subscriber = paths_subscriber_clone_2.clone();
-            let paths_subscriber_lock = local_subscriber.lock().await;            
-            paths_subscriber_lock.route_subscriptions(event_channel_for_path_subscriber, spawn_channel).await;
+            match PathSubscriber::route_subscriptions(
+                event_channel_for_path_subscriber,
+                spawn_channel,
+                subscriber_channel_1,
+                paths_clone_2
+            ).await {
+                Ok(_) => {},
+                Err(e) => {
+                    Logger::log_error_string(&format!("error while managing incoming subscriptions: {}", e.to_string()))
+                }
+            }
         });
-        
-        let paths_subscriber_arc = self.subscriber.lock().await;
-        let subscribe_channel = paths_subscriber_arc.subscribe_channel.0.clone();
+
         // start watching for new events from the notify crate
         let events_task:JoinHandle<Result<(), TryLockError>> = runtime_arc.spawn(async move {
             Logger::log_debug_string(&"spawned event watching thread".to_string());
@@ -95,7 +104,7 @@ impl Watcher {
                 events, 
                 root_dir,
                 scripts.clone(), 
-                subscribe_channel
+                subscriber_channel_2
             ).await
         });
 

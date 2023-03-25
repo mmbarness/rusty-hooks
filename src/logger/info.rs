@@ -1,6 +1,5 @@
 use log::{log_enabled, info, Level};
-
-use super::r#struct::Logger;
+use super::structs::Logger;
 
 pub trait InfoLogging {
     fn log_info_string(message: &String) {

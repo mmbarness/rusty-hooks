@@ -2,10 +2,10 @@ use tokio::sync::{TryLockError};
 use std::{path::PathBuf, collections::{hash_map::DefaultHasher, HashSet}};
 use notify::{Event, event::ModifyKind, EventKind};
 use std::hash::{Hash,Hasher};
-use crate::logger::{r#struct::Logger,debug::DebugLogging, error::ErrorLogging};
-use super::structs::Watcher;
 use crate::errors::watcher_errors::path_error::PathError;
-use super::watcher_scripts::WatcherScripts;
+use crate::logger::{structs::Logger,debug::DebugLogging, error::ErrorLogging};
+use crate::scripts::structs::Scripts;
+use super::structs::Watcher;
 use crate::utilities::thread_types::{EventsReceiver, SubscribeSender};
 
 impl Watcher {
@@ -72,7 +72,7 @@ impl Watcher {
     pub async fn watch_events(
         mut events_receiver: EventsReceiver,
         root_dir: PathBuf,
-        scripts: WatcherScripts,
+        scripts: Scripts,
         subscribe_channel: SubscribeSender
     ) -> Result<(), TryLockError> {
         while let Ok(res) = events_receiver.recv().await {
@@ -80,7 +80,7 @@ impl Watcher {
                 Ok(event) => {
                     match Self::ignore(&event) {
                         true => {
-                            Logger::log_debug_string(&format!("ignoring event of kind: {:?}", &event.kind));
+                            // Logger::log_debug_string(&format!("ignoring event of kind: {:?}", &event.kind));
                         },
                         false => {
                             Logger::log_debug_string(&format!("not ignoring event of kind: {:?}", &event.kind));
@@ -89,7 +89,15 @@ impl Watcher {
                                 root_dir.clone(),
                             );
                             for event_home_dir in unique_event_home_dirs {
-                                let _ = subscribe_channel.send((event_home_dir, scripts.get_by_event(&event)));
+                                match subscribe_channel.send((event_home_dir, scripts.get_by_event(&event))) {
+                                    Ok(s) => {
+                                        Logger::log_debug_string(&"successfuly sent new path to subscription thread".to_string());
+                                        // Logger::log_debug_string(&format!("num of sub receivers: {}", subscribe_channel.receiver_count()));
+                                    },
+                                    Err(e) => {
+                                        Logger::log_error_string(&format!("error while attempting to subscribe to new path: {}", e))
+                                    }
+                                }
                             }
                         }
                     };

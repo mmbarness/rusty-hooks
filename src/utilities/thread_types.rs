@@ -16,5 +16,7 @@ pub type EventChannel = Channel<EventMessage>;
 
 pub type SubscribeReceiver = BroadcastReceiver<SpawnMessage>;
 pub type SubscribeSender = BroadcastSender<SpawnMessage>;
+pub type SpawnSender = BroadcastSender<SpawnMessage>;
+pub type UnsubscribeSender = BroadcastSender<PathBuf>;
 pub type SubscribeChannel = Channel<SpawnMessage>;
 pub type UnsubscribeChannel = Channel<PathBuf>;
