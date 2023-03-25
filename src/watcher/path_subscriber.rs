@@ -1,7 +1,6 @@
 use std::{path::PathBuf, time::Duration, collections::HashMap, sync::Arc};
 use crate::scripts::structs::Script;
 use crate::runner::types::SpawnMessage;
-use crate::utilities::thread_types::UnsubscribeChannel;
 use crate::utilities::{thread_types::{BroadcastReceiver, EventMessage, BroadcastSender}, traits::Utilities};
 use crate::logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
 use super::structs::PathSubscriber;

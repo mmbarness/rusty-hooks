@@ -2,7 +2,7 @@ use tokio::{sync::{Mutex, broadcast::Sender, TryLockError}, task::JoinHandle};
 use std::{sync::Arc, path::PathBuf};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher, Config};
 use std::path::Path;
-use crate::logger::{structs::Logger, info::InfoLogging, debug::DebugLogging, error::ErrorLogging};
+use crate::{logger::{structs::Logger, info::InfoLogging, debug::DebugLogging, error::ErrorLogging}, utilities::thread_types::UnsubscribeSender};
 use crate::scripts::structs::{Scripts, Script};
 use crate::errors::watcher_errors::{watcher_error::WatcherError};
 use crate::utilities::{traits::Utilities, thread_types::{EventChannel, BroadcastSender}};
@@ -18,9 +18,9 @@ impl Watcher {
         })
     }
 
-    pub async fn start(&self, spawn_channel: Sender<(PathBuf, Vec<Script>)>, watch_path: String, scripts: &Scripts) -> Result<(), notify::Error>{
+    pub async fn start(&self, spawn_channel: Sender<(PathBuf, Vec<Script>)>, unsubscribe_channel: UnsubscribeSender, watch_path: String, scripts: &Scripts) -> Result<(), notify::Error>{
         let scripts_clone = scripts.clone();
-        Self::watch_handler(&self, self.runtime.clone(), spawn_channel,  watch_path, scripts_clone).await
+        Self::watch_handler(&self, self.runtime.clone(), spawn_channel,unsubscribe_channel,  watch_path, scripts_clone).await
     }
     
     fn notifier_task() -> notify::Result<(
@@ -53,6 +53,7 @@ impl Watcher {
         &self,
         runtime_arc: Arc<Mutex<tokio::runtime::Runtime>>, 
         spawn_channel: BroadcastSender<SpawnMessage>,
+        unsubscribe_channel: UnsubscribeSender,
         root_watch_path: P, 
         scripts: Scripts
     ) -> notify::Result<()> {
@@ -63,7 +64,6 @@ impl Watcher {
         // let (paths_subscriber_clone_1, paths_subscriber_clone_2) = (self.subscriber.clone(), self.subscriber.clone());
         let subscriber_channel_1 = self.subscriber.subscribe_channel.0.clone();
         let subscriber_channel_2 = self.subscriber.subscribe_channel.0.clone();
-        let unsubscribe_channel_1 = self.subscriber.unsubscribe_channel.0.clone();
         let paths_clone_1 = self.subscriber.paths.clone();
         let paths_clone_2 = self.subscriber.paths.clone();
 
@@ -77,7 +77,7 @@ impl Watcher {
         
         let unsubscribe_task = runtime_arc.spawn(async move {
             Logger::log_debug_string(&"spawned unsubscribe thread".to_string());
-            PathSubscriber::unsubscribe_task(unsubscribe_channel_1, paths_clone_1).await;
+            PathSubscriber::unsubscribe_task(unsubscribe_channel, paths_clone_1).await;
         });
         
         let event_channel_for_path_subscriber = broadcast_sender.clone();

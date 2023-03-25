@@ -1,4 +1,4 @@
-use std::{path::{PathBuf}, sync::{Mutex, Arc}, time::Duration};
+use std::{path::{PathBuf}, sync::{Mutex, Arc}, time::Duration, fs};
 use async_process::{Command, Output};
 use futures::future::try_join_all;
 use crate::logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
@@ -33,7 +33,7 @@ impl Runner {
                 Ok(lock) => lock,
                 Err(e) => {
                     let poison_error_message = e.to_string();
-                    let message = format!("unable to lock onto watched paths structure whilst receiving new path subscription: {}", poison_error_message);
+                    let message = format!("unable to lock onto watched paths structure while receiving new path subscription: {}", poison_error_message);
                     Logger::log_error_string(&message);
                     return ()
                 }
@@ -53,7 +53,7 @@ impl Runner {
                 for script in awaited_scripts {
                     match script.status.success() {
                         true => {
-                            Logger::log_info_string(&format!("printing script stdout...: {:?}", String::from_utf8(script.stdout)));
+                            Logger::log_info_string(&format!("script execution successful, printing script stdout...: {:?}", String::from_utf8(script.stdout)));
                         },
                         false => {
                             Logger::log_error_string(&format!("one or several of the scripts returned a stderr...: {:?}", String::from_utf8(script.stderr)))
@@ -77,7 +77,7 @@ impl Runner {
                                 let message = format!("error while attempting to unsubscribe from path, retrying...");
                                 Logger::log_error_string(&message);
                                 Logger::log_debug_string(&e.to_string())
-                                // need to implement a way to panic core process and probably a way to reset the path subscriber in the event it becomes unreachable
+                                // need to implement a way to panic core process and probably a way to reset the path cache in the event it becomes unreachable
                             }
                         }
                     }
@@ -91,7 +91,20 @@ impl Runner {
             Some(s) => s,
             None => "uh",
         };
-        Logger::log_debug_string(&format!("path is at: {}", path_string));
+        let target_path_string = match target_path.to_str() {
+            Some(s) => s,
+            None => "uh",
+        };
+        Logger::log_debug_string(&format!("script path is at: {}", path_string));
+        Logger::log_debug_string(&format!("directory path is at: {}", target_path_string));
+        match fs::try_exists(target_path) {
+            Ok(_) => {
+                Logger::log_debug_string(&"target path exists, attempting to run".to_string());
+            },
+            Err(e) => {
+                return Err(ScriptError::IoError(e.into()))
+            }
+        }
         Ok(Command::new(script_path)
             .arg(target_path)
             .output()
