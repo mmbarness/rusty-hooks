@@ -1,8 +1,4 @@
-#![feature(provide_any)]
-#![feature(error_generic_member_access)]
 #![feature(trait_alias)]
-#![feature(async_closure)]
-#![feature(is_some_and)]
 #![feature(io_error_more)]
 #![feature(result_option_inspect)]
 #![feature(fs_try_exists)]
@@ -18,7 +14,7 @@ use logger::{structs::Logger, error::ErrorLogging, info::InfoLogging};
 use runner::structs::Runner;
 use scripts::structs::Scripts;
 use watcher::{configs, structs::Watcher};
-use utilities::thread_types::{SpawnSender, UnsubscribeChannel, UnsubscribeSender};
+use utilities::thread_types::{SpawnSender, UnsubscribeSender};
 
 #[tokio::main]
 async fn main() {

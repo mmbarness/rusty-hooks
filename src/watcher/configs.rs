@@ -1,27 +1,13 @@
 #![deny(unconditional_recursion)]
-use std::{str::FromStr, num::ParseIntError};
+use std::{str::FromStr};
 use dotenv::dotenv;
-use strum::ParseError;
-use thiserror::Error;
 use strum_macros::{EnumString, AsRefStr};
-use crate::logger::{structs::Logger, info::InfoLogging, debug::DebugLogging};
+use crate::{logger::{structs::Logger, info::InfoLogging, debug::DebugLogging}, errors::watcher_errors::config_error::ConfigError};
 
 #[derive(Debug, Clone)]
 pub struct Configs {
     pub script_delay: ScriptDelay,
     pub scripts_path: ScriptsPath,
-}
-
-#[derive(Debug, Error)]
-pub enum ConfigError{
-    #[error("Unable to find env var: `{0}`")]
-    MissingError(String),
-    #[error("Error while parsing env vars: `{0}`")]
-    ParseError(String),
-    #[error("Error with strum: `{0}`")]
-    StrumParseError(#[from] ParseError),
-    #[error("Error with strum: `{0}`")]
-    ParseIntError(#[from] ParseIntError),
 }
 
 #[derive(AsRefStr, EnumString)]

@@ -7,7 +7,7 @@ use crate::logger::error::ErrorLogging;
 use crate::logger::structs::Logger;
 use crate::utilities::traits::Utilities;
 use crate::scripts::structs::ScriptJSON;
-use crate::errors::script_errors::script_error::{ConfigError, ScriptError};
+use crate::errors::script_errors::script_error::{ScriptConfigError, ScriptError};
 use super::structs::{Scripts, Script, ScriptsByEventTrigger};
 
 impl Scripts {
@@ -18,7 +18,7 @@ impl Scripts {
         }
     }
 
-    pub fn validate_scripts(unvalidated_scripts: Vec<ScriptJSON>, configs_path: &String) -> Result<Vec<Script>, ConfigError> {
+    pub fn validate_scripts(unvalidated_scripts: Vec<ScriptJSON>, configs_path: &String) -> Result<Vec<Script>, ScriptConfigError> {
         let script_validations:Vec<Result<(bool, PathBuf), std::io::Error>> = unvalidated_scripts.iter().map(|script| {
             let script_path = Self::build_path(&vec![&"./".to_string(), &configs_path, &script.file_name]);
             let io_error_kind = std::io::ErrorKind::InvalidFilename;
@@ -45,7 +45,7 @@ impl Scripts {
                 io_error_kind, 
                 "script validation error"
             );
-            Err(ConfigError::IoError(io_error))
+            Err(ScriptConfigError::IoError(io_error))
         } else {
             Ok(unvalidated_scripts.iter().map_into().collect_vec())
         }
@@ -54,7 +54,7 @@ impl Scripts {
     pub fn ingest_configs(configs_path: &String) -> Result<Self, ScriptError> {
         let configs_file = fs::read_to_string(format!("{}/scripts_config.json", configs_path)).map_err(ScriptError::IoError)?;
 
-        let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(ConfigError::JsonError)?;
+        let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(ScriptConfigError::JsonError)?;
 
         for file in &files {
             let message = serde_json::to_string_pretty(&file);
