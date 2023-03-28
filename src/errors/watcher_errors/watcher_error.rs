@@ -1,6 +1,10 @@
 use thiserror::Error;
 use crate::errors::script_errors::script_error::ScriptError;
-use super::{event_error::EventError, thread_error::ThreadError, path_error::PathError};
+use super::{
+    event_error::EventError,
+    thread_error::ThreadError,
+    path_error::PathError
+};
 
 #[derive(Debug, Error)]
 pub enum WatcherError {

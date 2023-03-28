@@ -2,7 +2,6 @@ use std::num::ParseIntError;
 use strum::ParseError;
 use thiserror::Error;
 
-
 #[derive(Debug, Error)]
 pub enum ConfigError{
     #[error("Unable to find env var: `{0}`")]

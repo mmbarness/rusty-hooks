@@ -1,3 +1,4 @@
-/target
+.vscode
 .env
 user_scripts
+target

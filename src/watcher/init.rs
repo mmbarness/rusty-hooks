@@ -18,7 +18,7 @@ impl Watcher {
         })
     }
 
-    pub async fn start(&self, spawn_channel: Sender<(PathBuf, Vec<Script>)>, unsubscribe_channel: UnsubscribeSender, watch_path: String, scripts: &Scripts) -> Result<(), notify::Error>{
+    pub async fn start(&self, spawn_channel: Sender<(PathBuf, Vec<Script>)>, unsubscribe_channel: UnsubscribeSender, watch_path: PathBuf, scripts: &Scripts) -> Result<(), notify::Error>{
         let scripts_clone = scripts.clone();
         Self::watch_handler(&self, self.runtime.clone(), spawn_channel,unsubscribe_channel,  watch_path, scripts_clone).await
     }
@@ -57,7 +57,7 @@ impl Watcher {
         root_watch_path: P, 
         scripts: Scripts
     ) -> notify::Result<()> {
-        let root_dir =root_watch_path.as_ref().to_path_buf();
+        let root_dir = root_watch_path.as_ref().to_path_buf();
         let (mut notifier_handle, (broadcast_sender, events)) = Self::notifier_task()?;
         notifier_handle.watch(root_watch_path.as_ref(), RecursiveMode::Recursive)?;
         

@@ -9,8 +9,12 @@ mod runner;
 mod scripts;
 mod utilities;
 
+use std::path::PathBuf;
+
+use clap::Parser;
 use errors::watcher_errors::{watcher_error::WatcherError, event_error::EventError};
-use logger::{structs::Logger, error::ErrorLogging, info::InfoLogging};
+use log::{Level, LevelFilter};
+use logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
 use runner::structs::Runner;
 use scripts::structs::Scripts;
 use watcher::{configs, structs::Watcher};
@@ -56,8 +60,20 @@ async fn main() {
 
 }
 
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// level of logging
+    #[arg(short, long, default_value="error")]
+    level: LevelFilter,
+    /// path to watch
+    #[arg(short, long)]
+    watch_path: PathBuf,
+}
+
 async fn initialize_watchers(spawn_channel: SpawnSender, unsubscribe_channel: UnsubscribeSender) -> Result<(), WatcherError>{
-    Logger::on_load();
+    let args = Args::parse();
+    Logger::on_load(args.level);
     let api_configs = match configs::Configs::load() {
         Ok(c) => c,
         Err(e) => {
@@ -75,13 +91,9 @@ async fn initialize_watchers(spawn_channel: SpawnSender, unsubscribe_channel: Un
             panic!()
         }
     };
-    
-    let root_watch_path = std::env::args()
-        .nth(2)
-        .expect("Argument 1 needs to be a path");
 
     let watcher = Watcher::new()?;
 
-    Ok(watcher.start(spawn_channel, unsubscribe_channel, root_watch_path, &watcher_scripts).await.map_err(|e| { EventError::NotifyError(e) })?)
+    Ok(watcher.start(spawn_channel, unsubscribe_channel, args.watch_path, &watcher_scripts).await.map_err(|e| { EventError::NotifyError(e) })?)
 
 }
