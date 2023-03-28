@@ -9,16 +9,13 @@ mod runner;
 mod scripts;
 mod utilities;
 
-use std::path::PathBuf;
-
 use clap::Parser;
 use errors::watcher_errors::{watcher_error::WatcherError, event_error::EventError};
-use log::{Level, LevelFilter};
-use logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
+use logger::{structs::Logger, error::ErrorLogging, info::InfoLogging};
 use runner::structs::Runner;
 use scripts::structs::Scripts;
 use watcher::{configs, structs::Watcher};
-use utilities::thread_types::{SpawnSender, UnsubscribeSender};
+use utilities::{thread_types::{SpawnSender, UnsubscribeSender}, cli_args::CommandLineArgs};
 
 #[tokio::main]
 async fn main() {
@@ -57,22 +54,10 @@ async fn main() {
             }
         }
     }
-
-}
-
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    /// level of logging
-    #[arg(short, long, default_value="error")]
-    level: LevelFilter,
-    /// path to watch
-    #[arg(short, long)]
-    watch_path: PathBuf,
 }
 
 async fn initialize_watchers(spawn_channel: SpawnSender, unsubscribe_channel: UnsubscribeSender) -> Result<(), WatcherError>{
-    let args = Args::parse();
+    let args = CommandLineArgs::parse();
     Logger::on_load(args.level);
     let api_configs = match configs::Configs::load() {
         Ok(c) => c,
