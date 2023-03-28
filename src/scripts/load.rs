@@ -18,14 +18,14 @@ impl Scripts {
         }
     }
 
-    pub fn validate_scripts(unvalidated_scripts: Vec<ScriptJSON>, configs_path: &String) -> Result<Vec<Script>, ScriptConfigError> {
+    pub fn validate_scripts(unvalidated_scripts: Vec<ScriptJSON>, script_directory: &String) -> Result<Vec<Script>, ScriptConfigError> {
         let script_validations:Vec<Result<(bool, PathBuf), std::io::Error>> = unvalidated_scripts.iter().map(|script| {
-            let script_path = Self::build_path(&vec![&"./".to_string(), &configs_path, &script.file_name]);
+            let script_path = Self::build_path(&vec![&script_directory, &script.file_name]);
             let io_error_kind = std::io::ErrorKind::InvalidFilename;
             let io_error = std::io::Error::new(
                 io_error_kind, 
                 format!(
-                    "unable to find script: {}, at path: {}", script.file_name, Self::format_unvalidated_path(&vec![&"./".to_string(), &configs_path, &script.file_name]).to_string()
+                    "unable to find script: {}, at path: {}", script.file_name, Self::format_unvalidated_path(&vec![&"./".to_string(), &script_directory, &script.file_name]).to_string()
                 )
             );
             match script_path {
@@ -50,9 +50,20 @@ impl Scripts {
             Ok(unvalidated_scripts.iter().map_into().collect_vec())
         }
     }
+
+    fn expected_config_filename() -> String {
+        "scripts_config.json".to_string()
+    }
+
+    fn expected_script_directory() -> String {
+        "./user_scripts/".to_string()
+    }
     
-    pub fn ingest_configs(configs_path: &String) -> Result<Self, ScriptError> {
-        let configs_file = fs::read_to_string(format!("{}/scripts_config.json", configs_path)).map_err(ScriptError::IoError)?;
+    pub fn load() -> Result<Self, ScriptError> {
+        let config_path = format!("{}{}", Self::expected_script_directory(), Self::expected_config_filename());
+        let directory_path = Self::expected_script_directory();
+
+        let configs_file = fs::read_to_string(config_path.clone()).map_err(ScriptError::IoError)?;
 
         let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(ScriptConfigError::JsonError)?;
 
@@ -61,7 +72,7 @@ impl Scripts {
             info!("script configuration: {:?}", message);
         }
 
-        let validated_scripts = Self::validate_scripts(files, configs_path)?;
+        let validated_scripts = Self::validate_scripts(files, &directory_path)?;
         let scripts_by_event_triggers = Self::cache_scripts_by_events(&validated_scripts);        
         
         Ok(Scripts{

@@ -1,4 +1,3 @@
-pub mod configs;
 pub mod init;
 pub mod structs;
 pub mod types;

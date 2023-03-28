@@ -14,7 +14,7 @@ use errors::watcher_errors::{watcher_error::WatcherError, event_error::EventErro
 use logger::{structs::Logger, error::ErrorLogging, info::InfoLogging};
 use runner::structs::Runner;
 use scripts::structs::Scripts;
-use watcher::{configs, structs::Watcher};
+use watcher::{structs::Watcher};
 use utilities::{thread_types::{SpawnSender, UnsubscribeSender}, cli_args::CommandLineArgs};
 
 #[tokio::main]
@@ -59,17 +59,8 @@ async fn main() {
 async fn initialize_watchers(spawn_channel: SpawnSender, unsubscribe_channel: UnsubscribeSender) -> Result<(), WatcherError>{
     let args = CommandLineArgs::parse();
     Logger::on_load(args.level);
-    let api_configs = match configs::Configs::load() {
-        Ok(c) => c,
-        Err(e) => {
-            Logger::log_error_string(&format!("error loading configs: {}", e.to_string()));
-            panic!()
-        }
-    };
     
-    let scripts_path = api_configs.scripts_path.clone();
-    
-    let watcher_scripts = match Scripts::ingest_configs(&scripts_path) {
+    let watcher_scripts = match Scripts::load() {
         Ok(script_records) => script_records,
         Err(e) => {
             Logger::log_error_string(&format!("error loading configs: {}", e.to_string()));
