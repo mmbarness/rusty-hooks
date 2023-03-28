@@ -1,11 +1,11 @@
 use std::{error,fmt};
-
 use strum::ParseError;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum EventError {
-    NotifyError(notify::Error),
-    TypeError(EventTypeError),
+    NotifyError(#[from] notify::Error),
+    TypeError(#[from] EventTypeError),
 }
 
 impl fmt::Display for EventError {
@@ -18,8 +18,6 @@ impl fmt::Display for EventError {
         }
     }
 }
-
-impl error::Error for EventError {}
 
 #[derive(Debug)]
 pub enum EventTypeError {
@@ -34,11 +32,5 @@ impl fmt::Display for EventTypeError {
             EventTypeError::ParseString(e) => 
                 write!(f, "error parsing event type as string: {}", e.to_string()),
         }
-    }
-}
-
-impl From<notify::Error> for EventError {
-    fn from(value: notify::Error) -> Self {
-        EventError::NotifyError(value)
     }
 }

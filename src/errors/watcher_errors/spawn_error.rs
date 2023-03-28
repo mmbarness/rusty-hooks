@@ -1,11 +1,11 @@
 use std::fmt;
 use strum::ParseError;
+use thiserror::Error;
 
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum SpawnError {
-    IoError(std::io::Error),
-    ParseError(ParseError),
+    IoError(#[from] std::io::Error),
+    ParseError(#[from] ParseError),
     ArgError(String),
 }
 
@@ -19,17 +19,5 @@ impl fmt::Display for SpawnError {
             SpawnError::ArgError(e) =>  
                 write!(f, "error with path arguments provided to command spawner: {}", e)
         }
-    }
-}
-
-impl From<std::io::Error> for SpawnError {
-    fn from(value:std::io::Error) -> Self {
-        SpawnError::IoError(value)
-    }
-}
-
-impl From<ParseError> for SpawnError {
-    fn from(value: ParseError) -> Self {
-        SpawnError::ParseError(value)
     }
 }

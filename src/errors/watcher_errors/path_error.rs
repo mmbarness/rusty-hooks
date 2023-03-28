@@ -1,17 +1,12 @@
 use std::fmt;
+use thiserror::Error;
 
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum PathError {
     TraversalError,
-    Io(std::io::Error),
+    Io(#[from] std::io::Error),
     UnsubscribeError(String)
-}
-
-impl From<std::io::Error> for PathError {
-    fn from(value: std::io::Error) -> Self {
-        PathError::Io(value)
-    }
 }
 
 impl fmt::Display for PathError {

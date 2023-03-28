@@ -1,15 +1,15 @@
-use std::{error, sync::{PoisonError, MutexGuard}, process::Child, fmt};
+use std::{sync::{PoisonError, MutexGuard}, process::Child, fmt};
 use futures::{channel::mpsc::SendError};
+use thiserror::Error;
 use crate::{errors::script_errors::script_error::ScriptError};
-impl error::Error for ThreadError {}
 
-#[derive(Debug)] 
+#[derive(Debug, Error)] 
 pub enum ThreadError {
     LockError(String),
-    RuntimeError(std::io::Error),
-    RecvSyncError(tokio::sync::broadcast::error::RecvError),
-    SendSyncError(tokio::sync::broadcast::error::SendError<Result<Child, ScriptError>>),
-    SendAsyncError(SendError),
+    RuntimeError(#[from] std::io::Error),
+    RecvSyncError(#[from] tokio::sync::broadcast::error::RecvError),
+    SendSyncError(#[from] tokio::sync::broadcast::error::SendError<Result<Child, ScriptError>>),
+    SendAsyncError(#[from] SendError),
 }
 
 pub type LockError<'a, T> = PoisonError<MutexGuard<'a, T>>;
@@ -31,32 +31,8 @@ impl fmt::Display for ThreadError {
     }
 }
 
-impl From<std::io::Error> for ThreadError {
-    fn from(value: std::io::Error) -> Self {
-        ThreadError::RuntimeError(value)
-    }
-}
-
 impl <'a,T> From<LockError<'a,T>> for ThreadError {
     fn from(value: LockError<'a,T>) -> Self {
         ThreadError::LockError(value.to_string())
-    }
-}
-
-impl From<SendError> for ThreadError {
-    fn from(value: SendError) -> Self {
-        ThreadError::SendAsyncError(value)
-    }
-}
-
-impl From<tokio::sync::broadcast::error::RecvError> for ThreadError {
-    fn from(value: tokio::sync::broadcast::error::RecvError) -> Self {
-        ThreadError::RecvSyncError(value)
-    }
-}
-
-impl From<tokio::sync::broadcast::error::SendError<Result<Child, ScriptError>>> for ThreadError {
-    fn from(value: tokio::sync::broadcast::error::SendError<Result<Child, ScriptError>>) -> Self {
-        ThreadError::SendSyncError(value)
     }
 }

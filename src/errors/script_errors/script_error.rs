@@ -5,19 +5,16 @@ use crate::{errors::watcher_errors::spawn_error::SpawnError};
 
 #[derive(Debug, Error)]
 pub enum ScriptError {
-    ConfigError(ConfigError),
-    IoError(std::io::Error),
-    SpawnError(SpawnError),
-    GenericMessage {
-        #[from]
-        source: std::io::Error,
-    },
+    ConfigError(#[from]  ConfigError),
+    IoError(#[from] std::io::Error),
+    SpawnError(#[from] SpawnError),
+    GenericMessage(String)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ConfigError {
-    IoError(std::io::Error),
-    JsonError(serde_json::Error),
+    IoError(#[from] std::io::Error),
+    JsonError(#[from] serde_json::Error),
 }
 
 impl fmt::Display for ConfigError {
@@ -40,27 +37,9 @@ impl fmt::Display for ScriptError {
                 write!(f, "error with io operation pertaining to script: {}", e),
             ScriptError::SpawnError(e) => 
                 write!(f, "error spawning script process: {}", e),
-            ScriptError::GenericMessage { source } => {
-                write!(f, "error with script: {}", source.to_string())
+            ScriptError::GenericMessage(e) => {
+                write!(f, "error with script: {}", e.to_string())
             }
         }
-    }
-}
-
-impl From<serde_json::Error> for ConfigError {
-    fn from(value: serde_json::Error) -> Self {
-        ConfigError::JsonError(value)
-    }
-}
-
-impl From<ConfigError> for ScriptError {
-    fn from(value: ConfigError) -> Self {
-        ScriptError::ConfigError(value)
-    }
-}
-
-impl From<SpawnError> for ScriptError {
-    fn from(value:SpawnError) -> Self {
-        ScriptError::SpawnError(value)
     }
 }
