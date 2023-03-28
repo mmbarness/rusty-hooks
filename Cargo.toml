@@ -2,9 +2,12 @@
 name = "rusty-hooks"
 version = "0.1.0"
 edition = "2021"
+authors = ["Matthew Barnes <011mbarnes@gmail.com>"]
+description = "Triggers user-provided scripts based on file system events"
+homepage = "https://github.com/mmbarness/rusty-hooks"
+repository = "https://github.com/mmbarness/rusty-hooks"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 async-process = "1.6.0"
 async-trait = "0.1.60"

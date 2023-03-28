@@ -90,7 +90,7 @@ impl Watcher {
                             );
                             for event_home_dir in unique_event_home_dirs {
                                 match subscribe_channel.send((event_home_dir, scripts.get_by_event(&event))) {
-                                    Ok(s) => {
+                                    Ok(_) => {
                                         Logger::log_debug_string(&"successfuly sent new path to subscription thread".to_string());
                                         // Logger::log_debug_string(&format!("num of sub receivers: {}", subscribe_channel.receiver_count()));
                                     },

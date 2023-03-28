@@ -5,7 +5,8 @@ use strum::ParseError;
 #[derive(Debug)]
 pub enum SpawnError {
     IoError(std::io::Error),
-    ParseError(ParseError)
+    ParseError(ParseError),
+    ArgError(String),
 }
 
 impl fmt::Display for SpawnError {
@@ -14,7 +15,9 @@ impl fmt::Display for SpawnError {
             SpawnError::IoError(e) => 
                 write!(f, "error with io operation while spawning script: {}", e),
             SpawnError::ParseError(e) => 
-                write!(f, "error parsing script while attempting to spawn new process: {}", e)
+                write!(f, "error parsing script while attempting to spawn new process: {}", e),
+            SpawnError::ArgError(e) =>  
+                write!(f, "error with path arguments provided to command spawner: {}", e)
         }
     }
 }

@@ -1,12 +1,17 @@
-use std::{fmt, str::FromStr};
-use crate::{errors::watcher_errors::spawn_error::SpawnError, scripts::structs::Script};
+use std::fmt;
+use thiserror::Error;
 
-#[derive(Debug)]
+use crate::{errors::watcher_errors::spawn_error::SpawnError};
+
+#[derive(Debug, Error)]
 pub enum ScriptError {
     ConfigError(ConfigError),
     IoError(std::io::Error),
     SpawnError(SpawnError),
-    GenericMessage(String),
+    GenericMessage {
+        #[from]
+        source: std::io::Error,
+    },
 }
 
 #[derive(Debug)]
@@ -35,8 +40,9 @@ impl fmt::Display for ScriptError {
                 write!(f, "error with io operation pertaining to script: {}", e),
             ScriptError::SpawnError(e) => 
                 write!(f, "error spawning script process: {}", e),
-            ScriptError::GenericMessage(e) => 
-                write!(f, "error with script: {}", e)
+            ScriptError::GenericMessage { source } => {
+                write!(f, "error with script: {}", source.to_string())
+            }
         }
     }
 }
@@ -57,17 +63,4 @@ impl From<SpawnError> for ScriptError {
     fn from(value:SpawnError) -> Self {
         ScriptError::SpawnError(value)
     }
-}
-
-impl From<std::io::Error> for ScriptError {
-    fn from(value:std::io::Error) -> Self {
-        ScriptError::IoError(value)
-    }
-}
-
-impl FromStr for ScriptError {
-    fn from_str(s: &str) -> Result<ScriptError, ScriptError> {
-        Ok(ScriptError::GenericMessage(s.to_string()))
-    }
-    type Err = ScriptError;
 }
