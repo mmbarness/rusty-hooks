@@ -21,6 +21,7 @@ futures = "0.3.25"
 is_executable = "1.0.1"
 itertools = "0.10.5"
 log = "0.4.17"
+loom = "0.5.6"
 merkle_hash = "3.2.0"
 notify = { version = "5.1.0", features  = ["serde"]}
 quote = "1.0.26"
