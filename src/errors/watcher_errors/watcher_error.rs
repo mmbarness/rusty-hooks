@@ -1,5 +1,5 @@
 use thiserror::Error;
-use crate::errors::script_errors::script_error::ScriptError;
+use crate::errors::{script_errors::script_error::ScriptError, runtime_error::enums::RuntimeError};
 use super::{
     event_error::EventError,
     thread_error::ThreadError,
@@ -12,6 +12,8 @@ pub enum WatcherError {
     EventError(#[from] EventError),
     #[error("error handling watched paths: `{0}`")]
     PathError(#[from] PathError),
+    #[error("error with watcher threadpool: `{0}`")]
+    RuntimeError(#[from] RuntimeError),
     #[error("error communicating between threads: `${0}`")]
     ThreadError(#[from] ThreadError),
     #[error("error handling user scripts: `${0}`")]

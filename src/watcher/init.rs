@@ -1,12 +1,10 @@
 use tokio::{sync::{Mutex, broadcast::Sender, TryLockError}, task::JoinHandle};
 use std::{sync::Arc, path::PathBuf};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher, Config};
-use std::path::Path;
-use crate::{logger::{structs::Logger, info::InfoLogging, debug::DebugLogging, error::ErrorLogging}, utilities::thread_types::UnsubscribeSender};
+use crate::{logger::{structs::Logger, info::InfoLogging, debug::DebugLogging, error::ErrorLogging}, utilities::thread_types::UnsubscribeSender, errors::{watcher_errors::{event_error::EventError, thread_error::ThreadError}, runtime_error::enums::RuntimeError}};
 use crate::scripts::structs::{Scripts, Script};
 use crate::errors::watcher_errors::{watcher_error::WatcherError};
-use crate::utilities::{traits::Utilities, thread_types::{EventChannel, BroadcastSender}};
-use crate::runner::types::SpawnMessage;
+use crate::utilities::{traits::Utilities, thread_types::{EventChannel}};
 use super::structs::{PathSubscriber, Watcher};
 
 impl Watcher {
@@ -16,11 +14,6 @@ impl Watcher {
             runtime: Arc::new(Mutex::new(watcher_runtime)),
             subscriber: PathSubscriber::new(),
         })
-    }
-
-    pub async fn start(&self, spawn_channel: Sender<(PathBuf, Vec<Script>)>, unsubscribe_channel: UnsubscribeSender, watch_path: PathBuf, scripts: &Scripts) -> Result<(), notify::Error>{
-        let scripts_clone = scripts.clone();
-        Self::watch_handler(&self, self.runtime.clone(), spawn_channel,unsubscribe_channel,  watch_path, scripts_clone).await
     }
     
     fn notifier_task() -> notify::Result<(
@@ -32,12 +25,7 @@ impl Watcher {
         let watcher = RecommendedWatcher::new(move |res| {
             match res {
                 Ok(r) => {
-                    match events_channel.send(Ok(r)) {
-                        Ok(_) => {},
-                        Err(e) => {
-                            Logger::log_debug_string(&format!("{} - num existing receivers: {}", e.to_string(), events_channel.receiver_count()))
-                        }
-                    };
+                    let _ = events_channel.send(Ok(r));
                 }
                 Err(e) => {
                     let error_arc = Arc::new(e);
@@ -49,31 +37,21 @@ impl Watcher {
         Ok((watcher, (events_channel_clone, broadcast_rx)))
     }
     
-    async fn watch_handler<P: AsRef<Path>>(
-        &self,
-        runtime_arc: Arc<Mutex<tokio::runtime::Runtime>>, 
-        spawn_channel: BroadcastSender<SpawnMessage>,
-        unsubscribe_channel: UnsubscribeSender,
-        root_watch_path: P, 
-        scripts: Scripts
-    ) -> notify::Result<()> {
-        let root_dir = root_watch_path.as_ref().to_path_buf();
-        let (mut notifier_handle, (broadcast_sender, events)) = Self::notifier_task()?;
-        notifier_handle.watch(root_watch_path.as_ref(), RecursiveMode::Recursive)?;
-        
-        // let (paths_subscriber_clone_1, paths_subscriber_clone_2) = (self.subscriber.clone(), self.subscriber.clone());
+    pub async fn start(
+        &self, spawn_channel: Sender<(PathBuf, Vec<Script>)>, unsubscribe_channel: UnsubscribeSender, watch_path: PathBuf, scripts: &Scripts
+    ) -> Result<(), WatcherError> {
+        let watch_path_clone = watch_path.clone();
+        let scripts_clone = scripts.clone();
+        let runtime_clone = self.runtime.clone();
+        let (mut notifier_handle, (broadcast_sender, events)) = Self::notifier_task().map_err(EventError::NotifyError)?;
+        notifier_handle.watch(watch_path.as_ref(), RecursiveMode::Recursive).map_err(EventError::NotifyError)?;
+
         let subscriber_channel_1 = self.subscriber.subscribe_channel.0.clone();
         let subscriber_channel_2 = self.subscriber.subscribe_channel.0.clone();
         let paths_clone_1 = self.subscriber.paths.clone();
         let paths_clone_2 = self.subscriber.paths.clone();
 
-        let runtime_arc = match runtime_arc.try_lock() {
-            Ok(r) => r,
-            Err(e) => {
-                Logger::log_info_string(&format!("{}", e.to_string()));
-                return Ok(())
-            }
-        };
+        let runtime_arc = runtime_clone.try_lock().map_err(RuntimeError::LockError)?;
         
         let unsubscribe_task = runtime_arc.spawn(async move {
             Logger::log_debug_string(&"spawned unsubscribe thread".to_string());
@@ -102,8 +80,8 @@ impl Watcher {
             Logger::log_debug_string(&"spawned event watching thread".to_string());
             Self::watch_events(
                 events, 
-                root_dir,
-                scripts.clone(), 
+                watch_path_clone,
+                scripts_clone, 
                 subscriber_channel_2
             ).await
         });
@@ -111,7 +89,7 @@ impl Watcher {
         Self::handle_all_futures(events_task, subscription_task, unsubscribe_task).await;
 
         // cleanup
-        notifier_handle.unwatch(root_watch_path.as_ref())?;
+        notifier_handle.unwatch(watch_path.as_ref()).map_err(EventError::NotifyError)?;
 
         Ok(())
     }

@@ -70,6 +70,6 @@ async fn initialize_watchers(spawn_channel: SpawnSender, unsubscribe_channel: Un
 
     let watcher = Watcher::new()?;
 
-    Ok(watcher.start(spawn_channel, unsubscribe_channel, args.watch_path, &watcher_scripts).await.map_err(|e| { EventError::NotifyError(e) })?)
+    Ok(watcher.start(spawn_channel, unsubscribe_channel, args.watch_path, &watcher_scripts).await?)
 
 }
