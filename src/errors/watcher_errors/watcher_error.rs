@@ -3,7 +3,7 @@ use crate::errors::{script_errors::script_error::ScriptError, runtime_error::enu
 use super::{
     event_error::EventError,
     thread_error::ThreadError,
-    path_error::PathError
+    path_error::PathError, timer_error::TimerError, subscriber_error::SubscriberError
 };
 
 #[derive(Debug, Error)]
@@ -12,6 +12,8 @@ pub enum WatcherError {
     EventError(#[from] EventError),
     #[error("error handling watched paths: `{0}`")]
     PathError(#[from] PathError),
+    #[error("error managing subscription state: `${0}`")]
+    SubscriberError(#[from] SubscriberError),
     #[error("error with watcher threadpool: `{0}`")]
     RuntimeError(#[from] RuntimeError),
     #[error("error communicating between threads: `${0}`")]

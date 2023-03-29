@@ -1,4 +1,13 @@
+use std::error::Error;
 use std::{path::PathBuf, time::Duration, collections::HashMap, sync::Arc};
+use notify::Event;
+use tokio::task::JoinHandle;
+
+use crate::errors::runtime_error::enums::RuntimeError;
+use crate::errors::watcher_errors::event_error::EventError;
+use crate::errors::watcher_errors::subscriber_error::SubscriberError;
+use crate::errors::watcher_errors::thread_error::UnexpectedAnyhowError;
+use crate::errors::watcher_errors::timer_error::TimerError;
 use crate::scripts::structs::Script;
 use crate::runner::types::SpawnMessage;
 use crate::utilities::{thread_types::{BroadcastReceiver, EventMessage, BroadcastSender}, traits::Utilities};
@@ -10,7 +19,7 @@ use super::types::{PathHash, PathsCache, PathsCacheArc};
 impl PathSubscriber {
     pub fn new() -> Self {
         let path_cache:HashMap<PathHash, (PathBuf, Vec<Script>)> = HashMap::new();
-        let paths = Arc::new(std::sync::Mutex::new(path_cache));
+        let paths = Arc::new(tokio::sync::Mutex::new(path_cache));
         PathSubscriber {
             paths,
             subscribe_channel: Self::new_channel::<SpawnMessage>(),
@@ -27,37 +36,51 @@ impl PathSubscriber {
         }
     }
 
-    pub async fn unsubscribe_task(unsubscribe_channel: BroadcastSender<PathBuf>, paths: PathsCacheArc) -> () {
-        while let unvalidated_path = unsubscribe_channel.subscribe().recv().await {
-            match unvalidated_path {
-                Ok(path) => {
-                    let paths = match paths.lock() {
-                        Ok(p) => p,
-                        Err(e) => {
-                            Logger::log_error_string(&format!("unable to lock onto paths while trying to unsubscribe: {:?}", e.to_string()));
-                            continue;
-                        }
-                    };
-                    match PathSubscriber::unsubscribe(&path, paths) {
-                        Ok(_) => {
-                            let path_display = path.display();
-                            let unsubscribe_success_message = &format!("successfully unsubscribed from path: {}", path_display);
-                            Logger::log_info_string(unsubscribe_success_message)
-                        },
-                        Err(e) => {
-                            Logger::log_error_string(&format!("{}", e.to_string()))
-                        }
-                    }
+    pub async fn unsubscribe_task(unsubscribe_channel: BroadcastSender<PathBuf>, paths: PathsCacheArc) -> Result<(), SubscriberError> {
+        loop {
+            let path = unsubscribe_channel.subscribe().recv().await.map_err(ThreadError::RecvError)?;
+            let paths = match paths.try_lock() {
+                Ok(p) => p,
+                Err(e) => {
+                    Logger::log_error_string(&format!("unable to lock onto paths while trying to unsubscribe: {:?}", e.to_string()));
+                    continue;
+                }
+            };
+            match PathSubscriber::unsubscribe(&path, paths) {
+                Ok(_) => {
+                    let path_display = path.display();
+                    let unsubscribe_success_message = &format!("successfully unsubscribed from path: {}", path_display);
+                    Logger::log_info_string(unsubscribe_success_message)
                 },
                 Err(e) => {
-                    Logger::log_error_string(&e.to_string());
-                    break;
-                },
+                    Logger::log_error_string(&format!("{}", e.to_string()))
+                }
             }
         }
     }
 
-    async fn start_waiting(original_path: PathBuf, mut events_listener: BroadcastReceiver<EventMessage>) {
+    fn validate_event_subscription(event:Result<Event, Arc<notify::Error>>, mut num_events_errors: i32) -> Result<(Event, i32), (SubscriberError, i32)> {
+        match event {
+            Ok(event) => Ok((event, num_events_errors)),
+            Err(e) => {
+                let notify_error:SubscriberError = match Arc::try_unwrap(e) {
+                    Ok(error) => {
+                        let event_error:EventError = error.into();
+                        event_error.into()
+                    },
+                    Err(arc_error) => {
+                        let unexpected_error = ThreadError::UnexpectedError(anyhow::Error::new(arc_error));
+                        unexpected_error.into()
+                    }
+                };
+                num_events_errors += 1;
+                Logger::log_error_string(&format!("error receiving events while waiting on timer to expire: {}", notify_error.to_string()));
+                Err((notify_error, num_events_errors))
+             }  
+        }
+    }
+
+    async fn start_waiting(original_path: PathBuf, mut events_listener: BroadcastReceiver<EventMessage>) -> Result<(), SubscriberError>{
         // thread that waits for events at particular path to end based on 1 or 2min timer and returns once either the events receiver closes or the timer runs out
         let new_timer = Self::new_timer(10);
         let timer_controller = new_timer.controller.clone();
@@ -66,13 +89,36 @@ impl PathSubscriber {
             new_timer.wait().await
         });
 
-        let events_thread = tokio::spawn(async move {
+        let events_thread:JoinHandle<Result<(), SubscriberError>> = tokio::spawn(async move {
             let path_string = original_path.to_str().unwrap_or("unable to pull string out of path buf");
             let hashed_original_path = Self::hasher(&path_string.to_string());
-            while let Ok(event) = events_listener.recv().await {
-                let valid_event = match event {
-                    Ok(event) => event,
-                    Err(e) => { continue }
+            let mut num_events_errors = 0;
+            let mut last_error: Option<SubscriberError> = None;
+            loop {
+                let event = match events_listener.recv().await.map_err(|e| {
+                    ThreadError::RecvError(e.into())
+                }) {
+                    Ok(e) => e,
+                    Err(e) => {
+                        num_events_errors += 1;
+                        last_error = Some(e.into());
+                        continue;
+                    }
+                };
+                if num_events_errors > 5 {
+                    let new_unexpected_error:ThreadError = ThreadError::new_unexpected_error(format!("error while waiting on events to run out at watched path {}", path_string));
+                    return Err(last_error.unwrap_or(new_unexpected_error.into()).into())
+                };
+                let valid_event = match Self::validate_event_subscription(event, num_events_errors) {
+                    Ok((event, num_errors)) => {
+                        num_events_errors = num_errors;
+                        event
+                    },
+                    Err((e, num_errors)) => {
+                        num_events_errors = num_errors;
+                        last_error = Some(e);
+                        continue;
+                    }
                 };
                 let path_overlap = valid_event.paths.iter().fold(false, |overlap, cur_path| {
                     if overlap { return true };
@@ -86,7 +132,7 @@ impl PathSubscriber {
                 if path_overlap {
                     // need to update the timer's timestamp to now
                     let now = chrono::prelude::Utc::now();
-                    let mut controller_lock = timer_controller.lock().await;
+                    let mut controller_lock = timer_controller.try_lock()?;
                     controller_lock.1 = now;
                 } else {
                     // continue to let the timer run out while monitoring new events
@@ -95,30 +141,19 @@ impl PathSubscriber {
             }
         });
 
-        match timer_thread.await {
-            Ok(_) => {},
-            Err(e) => {
-                Logger::log_error_string(&e.to_string())
-            }
+        match timer_thread.await.map_err(RuntimeError::JoinError)? {
+            Ok(_) => {
+                events_thread.abort();
+                Ok(())
+            },
+            Err(e) => Err(e.into()),
         }
-        // stop listening for events once the timer has run out
-        events_thread.abort();
     }
 
-    fn lock_and_update_paths(new_path:PathBuf, paths: Arc<std::sync::Mutex<HashMap<PathHash, (PathBuf, Vec<Script>)>>>, scripts: Vec<Script>) -> Result<bool, ThreadError> {
-        let mut paths_lock = match paths.lock() {
-            Ok(path) => path,
-            Err(e) => {
-                let poison_error_message = e.to_string();
-                let message = format!("unable to lock onto watched paths structure whilst receiving new path subscription: {}", poison_error_message);
-                Logger::log_error_string(&format!("{}", &message));
-                let thread_error = ThreadError::LockError(poison_error_message);
-                // handle the poison error better here  - https://users.rust-lang.org/t/mutex-poisoning-why-and-how-to-recover/72192/12#:~:text=You%20can%20ignore%20the%20poisoning%20by%20turning,value%20back%20into%20a%20non%2Dbroken%20state.
-                // TODO: implement a path cache, so that in the event of a poison error the path is reset to the cache?
-                return Ok(false)
-            }
-        };
-    
+    fn lock_and_update_paths(new_path:PathBuf, paths: Arc<tokio::sync::Mutex<HashMap<PathHash, (PathBuf, Vec<Script>)>>>, scripts: Vec<Script>) -> Result<bool, SubscriberError> {
+
+        let mut paths_lock = paths.try_lock()?;
+
         let path_string = new_path.to_str().unwrap_or("unable to pull string out of path buf");
         let path_hash = Self::hasher(&path_string.to_string());
         
@@ -135,7 +170,7 @@ impl PathSubscriber {
         spawn_channel: BroadcastSender<SpawnMessage>,
         subscribe_channel: BroadcastSender<(PathBuf, Vec<Script>)>,
         paths: PathsCacheArc
-    ) -> Result<(), ThreadError> {
+    ) -> Result<(), SubscriberError> {
         let mut subscription_listener = subscribe_channel.subscribe();
         let wait_threads = Self::new_runtime(4, &"timer-threads".to_string())?;
         while let unvalidated_subscription = subscription_listener.recv().await {
@@ -143,6 +178,7 @@ impl PathSubscriber {
                 Ok((path, scripts)) => {
                     let path_string = path.to_str().unwrap_or(&"bad path parse");
                     Logger::log_debug_string(&format!("new path: {}", path_string));
+
                     let events = events_listener.subscribe();
                     let subscribed_to_new_path = match Self::lock_and_update_paths(path.clone(), paths.clone(), scripts.clone()) {
                         Ok(subscribed) => subscribed,

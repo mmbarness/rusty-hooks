@@ -1,7 +1,7 @@
 use tokio::{sync::{Mutex, broadcast::Sender, TryLockError}, task::JoinHandle};
 use std::{sync::Arc, path::PathBuf};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher, Config};
-use crate::{logger::{structs::Logger, info::InfoLogging, debug::DebugLogging, error::ErrorLogging}, utilities::thread_types::UnsubscribeSender, errors::{watcher_errors::{event_error::EventError, thread_error::ThreadError}, runtime_error::enums::RuntimeError}};
+use crate::{logger::{structs::Logger, info::InfoLogging, debug::DebugLogging}, utilities::thread_types::UnsubscribeSender, errors::{watcher_errors::{event_error::EventError, subscriber_error::SubscriberError}, runtime_error::enums::RuntimeError}};
 use crate::scripts::structs::{Scripts, Script};
 use crate::errors::watcher_errors::{watcher_error::WatcherError};
 use crate::utilities::{traits::Utilities, thread_types::{EventChannel}};
@@ -55,28 +55,23 @@ impl Watcher {
         
         let unsubscribe_task = runtime_arc.spawn(async move {
             Logger::log_debug_string(&"spawned unsubscribe thread".to_string());
-            PathSubscriber::unsubscribe_task(unsubscribe_channel, paths_clone_1).await;
+            PathSubscriber::unsubscribe_task(unsubscribe_channel, paths_clone_1).await
         });
         
         let event_channel_for_path_subscriber = broadcast_sender.clone();
         // start watching for new path subscriptions coming from the event watcher
         let subscription_task = runtime_arc.spawn(async move {
             Logger::log_debug_string(&"spawned subscribe thread".to_string());
-            match PathSubscriber::route_subscriptions(
+            PathSubscriber::route_subscriptions(
                 event_channel_for_path_subscriber,
                 spawn_channel,
                 subscriber_channel_1,
                 paths_clone_2
-            ).await {
-                Ok(_) => {},
-                Err(e) => {
-                    Logger::log_error_string(&format!("error while managing incoming subscriptions: {}", e.to_string()))
-                }
-            }
+            ).await
         });
 
         // start watching for new events from the notify crate
-        let events_task:JoinHandle<Result<(), TryLockError>> = runtime_arc.spawn(async move {
+        let events_task = runtime_arc.spawn(async move {
             Logger::log_debug_string(&"spawned event watching thread".to_string());
             Self::watch_events(
                 events, 
@@ -94,7 +89,7 @@ impl Watcher {
         Ok(())
     }
     // kills all tasks if any exit
-    async fn handle_all_futures(events: JoinHandle<Result<(), TryLockError>>, subscriptions:JoinHandle<()>, unsubscription: JoinHandle<()>) -> () {
+    async fn handle_all_futures(events: JoinHandle<Result<(), TryLockError>>, subscriptions:JoinHandle<Result<(), SubscriberError>>, unsubscription: JoinHandle<Result<(), SubscriberError>>) -> () {
             tokio::select! {
                 a = events => {
                     match a {
@@ -127,6 +122,6 @@ impl Watcher {
                     }
                 }
             }
-        Logger::log_info_string(&"when one task exits all are killed and the program exits".to_string())
+        Logger::log_info_string(&"when one task exits for whatever reason (probably an error), all are killed and the program exits".to_string())
     }
 }

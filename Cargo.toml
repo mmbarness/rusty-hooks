@@ -9,6 +9,7 @@ repository = "https://github.com/mmbarness/rusty-hooks"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
+anyhow = "1.0.70"
 async-process = "1.6.0"
 async-trait = "0.1.60"
 chrono = "0.4.24"
