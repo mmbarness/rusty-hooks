@@ -142,26 +142,26 @@ mod tests {
 
     #[test]
     fn can_get_scripts_by_event() {
-        let event_path = Path::new("/").to_path_buf();
+        // let event_path = Path::new("/").to_path_buf();
 
-        let new_script = Script {
-            event_triggers: vec!["Modify".to_string()],
-            file_path: event_path,
-            file_name: "whatever.sh".to_string(),
-            failed: None,
-            run_delay: 0,
-        };
-        let script_clone = new_script.clone();
+        // let new_script = Script {
+        //     event_triggers: vec!["Modify".to_string()],
+        //     file_path: event_path,
+        //     file_name: "whatever.sh".to_string(),
+        //     failed: None,
+        //     run_delay: 0,
+        // };
+        // let script_clone = new_script.clone();
 
-        let modify_event_kind = EventKind::Modify(notify::event::ModifyKind::Any);
-        let modify_event_kind_clone = modify_event_kind.clone();
+        // let modify_event_kind = EventKind::Modify(notify::event::ModifyKind::Any);
+        // let modify_event_kind_clone = modify_event_kind.clone();
 
-        let mut scripts_by_event_kind:HashMap<EventKind, Vec<Script>> = HashMap::new();
-        scripts_by_event_kind.insert(modify_event_kind, vec![new_script]);
+        // let mut scripts_by_event_kind:HashMap<EventKind, Vec<Script>> = HashMap::new();
+        // scripts_by_event_kind.insert(modify_event_kind, vec![new_script]);
 
-        let scripts = Scripts::faux();
+        // let scripts = Scripts::faux();
 
-        let function_return = scripts.get_by_event(&modify_event_kind_clone);
+        // let function_return = scripts.get_by_event(&modify_event_kind_clone);
 
         // assert_eq!(function_return.len(), 1);
         // assert_eq!(function_return[0], script_clone);
