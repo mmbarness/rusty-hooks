@@ -1,6 +1,6 @@
 on: [ pull_request ]
 
-name: Test & Lint
+name: On Pull Request
 
 jobs:
   check:
@@ -24,7 +24,7 @@ jobs:
           command: check
 
   test:
-    name: Test Suite
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
