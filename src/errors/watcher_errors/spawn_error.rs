@@ -1,32 +1,12 @@
-use std::fmt;
 use strum::ParseError;
+use thiserror::Error;
 
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum SpawnError {
-    IoError(std::io::Error),
-    ParseError(ParseError)
-}
-
-impl fmt::Display for SpawnError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SpawnError::IoError(e) => 
-                write!(f, "error with io operation while spawning script: {}", e),
-            SpawnError::ParseError(e) => 
-                write!(f, "error parsing script while attempting to spawn new process: {}", e)
-        }
-    }
-}
-
-impl From<std::io::Error> for SpawnError {
-    fn from(value:std::io::Error) -> Self {
-        SpawnError::IoError(value)
-    }
-}
-
-impl From<ParseError> for SpawnError {
-    fn from(value: ParseError) -> Self {
-        SpawnError::ParseError(value)
-    }
+    #[error("io operation error: `{0}`")]
+    IoError(#[from] std::io::Error),
+    #[error("error parsing script while attempting to spawn new process: `{0}`")]
+    ParseError(#[from] ParseError),
+    #[error("ierror with path arguments provided to command spawner: `{0}`")]
+    ArgError(String),
 }

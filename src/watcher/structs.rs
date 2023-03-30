@@ -13,7 +13,7 @@ pub struct Watcher {
 
 #[derive(Debug)]
 pub struct PathSubscriber {
-    pub paths: Arc<std::sync::Mutex<HashMap<PathHash, (PathBuf, Vec<Script>)>>>,
+    pub paths: Arc<tokio::sync::Mutex<HashMap<PathHash, (PathBuf, Vec<Script>)>>>,
     pub subscribe_channel: SubscribeChannel,
     pub unsubscribe_channel: UnsubscribeChannel
 }

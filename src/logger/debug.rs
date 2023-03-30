@@ -3,7 +3,7 @@ use super::structs::Logger;
 
 pub trait DebugLogging {
     fn log_debug_string(message: &String) {
-        if log_enabled!(Level::Error) {
+        if log_enabled!(Level::Debug) {
             debug!("{}", message)
         }
     }

@@ -1,28 +1,11 @@
-use std::fmt;
+use thiserror::Error;
 
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum PathError {
+    #[error("`io operation error: {0}`")]
+    Io(#[from] std::io::Error),
+    #[error("error traversing path")]
     TraversalError,
-    Io(std::io::Error),
+    #[error("`{0}`")]
     UnsubscribeError(String)
-}
-
-impl From<std::io::Error> for PathError {
-    fn from(value: std::io::Error) -> Self {
-        PathError::Io(value)
-    }
-}
-
-impl fmt::Display for PathError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PathError::UnsubscribeError(e) => 
-                write!(f, "{}", e.to_string()),
-            PathError::Io(e) => 
-                write!(f, "io operation error: {}", e.to_string()),
-            PathError::TraversalError => 
-                write!(f, "error traversing file structure"),
-        }
-    }
 }

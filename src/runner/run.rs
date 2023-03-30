@@ -1,11 +1,12 @@
 use std::{path::{PathBuf}, sync::{Mutex, Arc}, time::Duration, fs};
 use async_process::{Command, Output};
 use futures::future::try_join_all;
-use crate::logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
+use crate::{logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}, errors::watcher_errors::spawn_error::SpawnError};
 use crate::scripts::structs::Script;
 use crate::errors::watcher_errors::thread_error::ThreadError;
 use crate::errors::script_errors::script_error::ScriptError;
 use crate::utilities::traits::Utilities;
+use tokio::sync::broadcast::{Receiver, Sender};
 use super::structs::Runner;
 
 impl Runner {
@@ -39,9 +40,8 @@ impl Runner {
                 }
             };
             runtime_lock.spawn(async move {
-                tokio::time::sleep_until(tokio::time::Instant::now() + Duration::from_secs(10)).await;
                 let script_processes:Vec<_> = scripts.iter().map(|script|{
-                    Self::run(&script.file_path, &path)
+                    Self::run(&script.file_path, &path, &script.run_delay)
                 }).collect();
                 let awaited_scripts = match try_join_all(script_processes).await {
                     Ok(vec) => vec,
@@ -86,15 +86,10 @@ impl Runner {
         }
     }
 
-    async fn run(script_path: &PathBuf, target_path: &PathBuf) -> Result<Output, ScriptError> {
-        let path_string = match script_path.to_str() {
-            Some(s) => s,
-            None => "uh",
-        };
-        let target_path_string = match target_path.to_str() {
-            Some(s) => s,
-            None => "uh",
-        };
+    async fn run(script_path: &PathBuf, target_path: &PathBuf, run_delay: &u8) -> Result<Output, ScriptError> {
+        tokio::time::sleep(Duration::from_secs(run_delay.clone().into())).await;
+        let path_string = script_path.to_str().ok_or(SpawnError::ArgError("failed to parse script path".to_string()))?;
+        let target_path_string = target_path.to_str().ok_or(SpawnError::ArgError("failed to parse target path".to_string()))?;
         Logger::log_debug_string(&format!("script path is at: {}", path_string));
         Logger::log_debug_string(&format!("directory path is at: {}", target_path_string));
         match fs::try_exists(target_path) {

@@ -7,25 +7,26 @@ use crate::logger::error::ErrorLogging;
 use crate::logger::structs::Logger;
 use crate::utilities::traits::Utilities;
 use crate::scripts::structs::ScriptJSON;
-use crate::errors::script_errors::script_error::{ConfigError, ScriptError};
+use crate::errors::script_errors::script_error::{ScriptConfigError, ScriptError};
 use super::structs::{Scripts, Script, ScriptsByEventTrigger};
 
+#[cfg_attr(test, faux::methods(path="super::structs"))]
 impl Scripts {
-    pub fn get_by_event(&self, event: &Event) -> Vec<Script> {
-        match self.scripts_by_event_triggers.get(&event.kind) { 
+    pub fn get_by_event(&self, event_kind: &EventKind) -> Vec<Script> {
+        match self.scripts_by_event_triggers.get(&event_kind) { 
             Some(scripts) => scripts.clone(),
             None => return vec![]
         }
     }
 
-    pub fn validate_scripts(unvalidated_scripts: Vec<ScriptJSON>, configs_path: &String) -> Result<Vec<Script>, ConfigError> {
+    pub fn validate_scripts(unvalidated_scripts: Vec<ScriptJSON>, script_directory: &String) -> Result<Vec<Script>, ScriptConfigError> {
         let script_validations:Vec<Result<(bool, PathBuf), std::io::Error>> = unvalidated_scripts.iter().map(|script| {
-            let script_path = Self::build_path(&vec![&"./".to_string(), &configs_path, &script.file_name]);
+            let script_path = Self::build_path(&vec![&script_directory, &script.file_name]);
             let io_error_kind = std::io::ErrorKind::InvalidFilename;
             let io_error = std::io::Error::new(
                 io_error_kind, 
                 format!(
-                    "unable to find script: {}, at path: {}", script.file_name, Self::format_unvalidated_path(&vec![&"./".to_string(), &configs_path, &script.file_name]).to_string()
+                    "unable to find script: {}, at path: {}", script.file_name, Self::format_unvalidated_path(&vec![&"./".to_string(), &script_directory, &script.file_name]).to_string()
                 )
             );
             match script_path {
@@ -45,23 +46,34 @@ impl Scripts {
                 io_error_kind, 
                 "script validation error"
             );
-            Err(ConfigError::IoError(io_error))
+            Err(ScriptConfigError::IoError(io_error))
         } else {
             Ok(unvalidated_scripts.iter().map_into().collect_vec())
         }
     }
-    
-    pub fn ingest_configs(configs_path: &String) -> Result<Self, ScriptError> {
-        let configs_file = fs::read_to_string(format!("{}/scripts_config.json", configs_path)).map_err(ScriptError::IoError)?;
 
-        let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(ConfigError::JsonError)?;
+    fn expected_config_filename() -> String {
+        "scripts_config.json".to_string()
+    }
+
+    fn expected_script_directory() -> String {
+        "./user_scripts/".to_string()
+    }
+    
+    pub fn load() -> Result<Self, ScriptError> {
+        let config_path = format!("{}{}", Self::expected_script_directory(), Self::expected_config_filename());
+        let directory_path = Self::expected_script_directory();
+
+        let configs_file = fs::read_to_string(config_path.clone()).map_err(ScriptError::IoError)?;
+
+        let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(ScriptConfigError::JsonError)?;
 
         for file in &files {
             let message = serde_json::to_string_pretty(&file);
             info!("script configuration: {:?}", message);
         }
 
-        let validated_scripts = Self::validate_scripts(files, configs_path)?;
+        let validated_scripts = Self::validate_scripts(files, &directory_path)?;
         let scripts_by_event_triggers = Self::cache_scripts_by_events(&validated_scripts);        
         
         Ok(Scripts{
@@ -118,5 +130,40 @@ impl Scripts {
                 event_type_and_schema_to_insert
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use notify::EventKind;
+
+    use crate::scripts::structs::{Script, Scripts};
+    use std::{path::Path, collections::HashMap};
+
+    #[test]
+    fn can_get_scripts_by_event() {
+        // let event_path = Path::new("/").to_path_buf();
+
+        // let new_script = Script {
+        //     event_triggers: vec!["Modify".to_string()],
+        //     file_path: event_path,
+        //     file_name: "whatever.sh".to_string(),
+        //     failed: None,
+        //     run_delay: 0,
+        // };
+        // let script_clone = new_script.clone();
+
+        // let modify_event_kind = EventKind::Modify(notify::event::ModifyKind::Any);
+        // let modify_event_kind_clone = modify_event_kind.clone();
+
+        // let mut scripts_by_event_kind:HashMap<EventKind, Vec<Script>> = HashMap::new();
+        // scripts_by_event_kind.insert(modify_event_kind, vec![new_script]);
+
+        // let scripts = Scripts::faux();
+
+        // let function_return = scripts.get_by_event(&modify_event_kind_clone);
+
+        // assert_eq!(function_return.len(), 1);
+        // assert_eq!(function_return[0], script_clone);
     }
 }
