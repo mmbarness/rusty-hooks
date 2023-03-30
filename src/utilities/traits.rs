@@ -24,6 +24,10 @@ pub trait Utilities {
             path.to_path_buf().join(segment)
         });
         Self::log_path(&path, log::Level::Debug);
+        Self::verify_path(path)
+    }
+
+    fn verify_path(path: PathBuf) -> Option<PathBuf> {
         path.exists().then_some(path)
     }
 

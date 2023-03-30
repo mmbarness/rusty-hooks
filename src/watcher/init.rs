@@ -15,7 +15,7 @@ impl Watcher {
             subscriber: PathSubscriber::new(),
         })
     }
-    
+
     fn notifier_task() -> notify::Result<(
         RecommendedWatcher, EventChannel
     )> {

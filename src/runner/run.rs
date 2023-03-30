@@ -6,6 +6,7 @@ use crate::scripts::structs::Script;
 use crate::errors::watcher_errors::thread_error::ThreadError;
 use crate::errors::script_errors::script_error::ScriptError;
 use crate::utilities::traits::Utilities;
+use tokio::sync::broadcast::{Receiver, Sender};
 use super::structs::Runner;
 
 impl Runner {
