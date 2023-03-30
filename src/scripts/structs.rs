@@ -18,7 +18,7 @@ impl Utilities for Scripts {}
 pub struct ScriptJSON {
     pub event_triggers: Vec<String>,
     pub file_name: String,
-    pub failed: Option<bool>,
+    pub watch_path: String,
     pub run_delay: u8,
 }
 
@@ -29,6 +29,7 @@ pub struct Script {
     pub file_name: String,
     pub failed: Option<bool>,
     pub run_delay: u8,
+    pub watch_path: PathBuf,
 }
 
 impl Utilities for Script {}
@@ -38,12 +39,15 @@ impl From<ScriptJSON> for Script {
         let path_string = format!("./user_scripts/{}", json.file_name.clone());
         let as_path = Path::new(&path_string).to_path_buf();
 
+        let watch_path = Path::new(&json.watch_path).to_path_buf();
+
         Script {
             event_triggers: json.event_triggers,
             file_path: as_path,
             file_name: json.file_name,
-            failed: json.failed,
-            run_delay: json.run_delay
+            failed: None,
+            run_delay: json.run_delay,
+            watch_path
         }
     }
 }
@@ -52,12 +56,15 @@ impl From<&ScriptJSON> for Script {
     fn from(json: &ScriptJSON) -> Self {
         let path_string = format!("./user_scripts/{}", json.file_name.clone());
         let as_path = Path::new(&path_string).to_path_buf();
+
+        let watch_path = Path::new(&json.watch_path).to_path_buf();
         Script {
             event_triggers: json.event_triggers.clone(),
             file_path: as_path,
             file_name: json.file_name.clone(),
-            failed: json.failed,
-            run_delay: json.run_delay
+            failed: None,
+            run_delay: json.run_delay,
+            watch_path
         }
     }
 }

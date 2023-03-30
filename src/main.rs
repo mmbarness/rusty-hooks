@@ -2,6 +2,7 @@
 #![feature(io_error_more)]
 #![feature(result_option_inspect)]
 #![feature(fs_try_exists)]
+#![feature(is_some_and)]
 mod logger;
 mod errors;
 mod watcher;
@@ -19,7 +20,6 @@ use runner::structs::Runner;
 use scripts::structs::Scripts;
 use watcher::{structs::Watcher};
 use utilities::{thread_types::{SpawnSender, UnsubscribeSender}, cli_args::CommandLineArgs};
-use crate::utilities::traits::Utilities;
 
 #[tokio::main]
 async fn main() {
@@ -35,13 +35,11 @@ async fn main() {
     let args = CommandLineArgs::parse();
     Logger::on_load(args.level);
 
-    // let watcher_runtime = Runner::new_runtime(4, &"watcher-runtime".to_string());
-
     let watchers:Vec<_> = args.watch_path.iter().map(|watch_path| {
         initialize_watchers(watch_path, spawn_channel.clone(), unsubscribe_channel.clone())
     }).collect();
 
-    let awaited_scripts = try_join_all(watchers);
+    let awaited_watchers = try_join_all(watchers);
 
     tokio::select! {
         a = runner_task => {
@@ -55,13 +53,13 @@ async fn main() {
                 }
             }
         },
-        b = awaited_scripts => {
+        b = awaited_watchers => {
             match b {
                 Ok(_) => {
-                    Logger::log_info_string(&format!("event watcher task exited, cleaning up other tasks and exiting").to_string())
+                    Logger::log_info_string(&format!("event watcher tasks exited, cleaning up other tasks and exiting").to_string())
                 },
                 Err(e) => {
-                    Logger::log_error_string(&format!("event watcher failed: {}", e).to_string());
+                    Logger::log_error_string(&format!("event watchers failed: {}", e).to_string());
                     Logger::log_info_string(&format!("cleaning up other tasks and exiting"));
                 }
             }
@@ -70,7 +68,7 @@ async fn main() {
 }
 
 async fn initialize_watchers(watch_path:&PathBuf, spawn_channel: SpawnSender, unsubscribe_channel: UnsubscribeSender) -> Result<(), WatcherError>{
-    let watcher_scripts = match Scripts::load() {
+    let watcher_scripts = match Scripts::load(watch_path) {
         Ok(script_records) => script_records,
         Err(e) => {
             Logger::log_error_string(&format!("error loading configs: {}", e.to_string()));
