@@ -10,11 +10,19 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
+      - name: Restore From Cache
+        uses: actions/cache@v3
+        with:
+          path: toolchain
+          key: ${{ runner.os }}-toolchain-${{ github.ref }}-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-toolchain-${{ github.ref }}-
+
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           override: true
 
       - name: Run cargo check
@@ -30,11 +38,19 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
+      - name: Restore From Cache
+        uses: actions/cache@v3
+        with:
+          path: toolchain
+          key: ${{ runner.os }}-toolchain-${{ github.ref }}-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-toolchain-${{ github.ref }}-
+
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           override: true
 
       - name: Run cargo test
@@ -50,11 +66,19 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
+      - name: Restore From Cache
+        uses: actions/cache@v3
+        with:
+          path: toolchain
+          key: ${{ runner.os }}-toolchain-${{ github.ref }}-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-toolchain-${{ github.ref }}-
+
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           override: true
           components: rustfmt, clippy
 
