@@ -9,6 +9,6 @@ pub struct CommandLineArgs {
     #[arg(short, long, default_value="error")]
     pub level: LevelFilter,
     /// path to watch
-    #[arg(short, long)]
-    pub watch_path: PathBuf,
+    #[arg(short, long, use_value_delimiter=true)]
+    pub watch_path: Vec<PathBuf>,
 }
