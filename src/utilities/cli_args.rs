@@ -7,7 +7,7 @@ use log::LevelFilter;
 pub struct CommandLineArgs {
     /// level of logging
     #[arg(short, long, default_value="error")]
-    pub level: LevelFilter,
+    pub log_level: LevelFilter,
     /// path to watch
     #[arg(short, long, use_value_delimiter=true)]
     pub watch_path: Vec<PathBuf>,

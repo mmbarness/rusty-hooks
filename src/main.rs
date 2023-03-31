@@ -33,7 +33,7 @@ async fn main() {
     let runner_task = runner.init();
 
     let args = CommandLineArgs::parse();
-    Logger::on_load(args.level);
+    Logger::on_load(args.log_level);
 
     let watchers:Vec<_> = args.watch_path.iter().map(|watch_path| {
         initialize_watchers(watch_path, spawn_channel.clone(), unsubscribe_channel.clone())
