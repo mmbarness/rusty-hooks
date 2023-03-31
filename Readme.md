@@ -5,11 +5,11 @@ I found myself needing a way to continually execute arbitrary bash scripts based
 
 ### Installation
 
-This runs on rust nightly for the moment.
+Binaries are available for each release, in the releases section of this repo.
 
 ### How to run it
 
-At the moment you'll have to clone the repo and build the binaries, then run them. The application expects the scripts to be local to wherever the binaries are run from, in a folder called 'user_scripts', and within that folder expects the bash scripts along with a 'scripts_config.json'. That file should have an array structure of objects that look like this: 
+The application expects the scripts to be local to wherever the binaries are run from, in a folder called 'user_scripts', and within that folder expects the bash scripts along with a 'scripts_config.json'. That file should have an array structure of objects that look like this:
 ```
     {
         "event_triggers": ["EventKinds"],
