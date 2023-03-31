@@ -3,6 +3,8 @@ on:
     types: [created]
   workflow_dispatch:
 
+name: Build
+
 jobs:
   release:
     name: release ${{ matrix.target }}
@@ -18,11 +20,17 @@ jobs:
           - target: x86_64-apple-darwin
             archive: zip
     steps:
+      - name: Restore From Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: ${{ runner.os }}-build-release-nightly-toolchain-${{ hashFiles('**/Cargo.toml') }}
+          key: ${{ runner.os }}-build-release-nightly-toolchain
       - uses: actions/checkout@master
       - name: Compile and release
         uses: rust-build/rust-build.action@v1.4.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          RUSTTARGET: ${{ matrix.target }}
           ARCHIVE_TYPES: ${{ matrix.archive }}
+          RUSTTARGET: ${{ matrix.target }}
+          TOOLCHAIN_VERSION: nightly

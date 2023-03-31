@@ -1,7 +1,7 @@
 on: 
   workflow_dispatch:
 
-name: On Pull Request
+name: Lint
 
 jobs:
   lints:
