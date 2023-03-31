@@ -3,7 +3,7 @@ use crate::errors::{script_errors::script_error::ScriptError, runtime_error::enu
 use super::{
     event_error::EventError,
     thread_error::ThreadError,
-    path_error::PathError, timer_error::TimerError, subscriber_error::SubscriberError
+    path_error::PathError, subscriber_error::SubscriberError
 };
 
 #[derive(Debug, Error)]

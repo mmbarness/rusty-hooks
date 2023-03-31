@@ -1,12 +1,12 @@
 use std::{path::{PathBuf}, sync::{Mutex, Arc}, time::Duration, fs};
 use async_process::{Command, Output};
 use futures::future::try_join_all;
-use crate::{logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}, errors::watcher_errors::spawn_error::SpawnError};
+use tokio::{sync::broadcast::Sender, task::JoinHandle};
+use crate::{logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}, errors::watcher_errors::{spawn_error::SpawnError, subscriber_error::SubscriberError, thread_error::UnexpectedAnyhowError}};
 use crate::scripts::structs::Script;
 use crate::errors::watcher_errors::thread_error::ThreadError;
 use crate::errors::script_errors::script_error::ScriptError;
 use crate::utilities::traits::Utilities;
-use tokio::sync::broadcast::{Receiver, Sender};
 use super::structs::Runner;
 
 impl Runner {
@@ -22,11 +22,12 @@ impl Runner {
         })
     }
 
-    pub async fn init(&self) {
+    pub async fn init(&self) -> Result<(), SpawnError> {
         let mut spawn_listener = self.spawn_channel.0.clone().subscribe();
         let runtime = self.runtime.clone();
         // listening for paths to run scripts on, sent over from the PathSubscriber
-        while let Ok((path, scripts)) = spawn_listener.recv().await {
+        loop {
+            let (path, scripts) = spawn_listener.recv().await.map_err(ThreadError::RecvError)?;
             let path_string = path.to_str().unwrap_or("unable to pull string out of path buf");
             Logger::log_debug_string(&format!("new path to spawn scripts for: {}", path_string));
             let unsubscribe_clone = self.unsubscribe_broadcast_channel.0.clone();
@@ -36,20 +37,15 @@ impl Runner {
                     let poison_error_message = e.to_string();
                     let message = format!("unable to lock onto watched paths structure while receiving new path subscription: {}", poison_error_message);
                     Logger::log_error_string(&message);
-                    return ()
+                    return Ok(())
                 }
             };
-            runtime_lock.spawn(async move {
+
+            let scripts_task:JoinHandle<Result<(), SpawnError>> = runtime_lock.spawn(async move {
                 let script_processes:Vec<_> = scripts.iter().map(|script|{
                     Self::run(&script.file_path, &path, &script.run_delay)
                 }).collect();
-                let awaited_scripts = match try_join_all(script_processes).await {
-                    Ok(vec) => vec,
-                    Err(e) => {
-                        Logger::log_error_string(&format!("error while executing script: {}", e.to_string()));
-                        return ();
-                    }
-                };
+                let awaited_scripts = try_join_all(script_processes).await.map_err(|e| SpawnError::ScriptError(e.to_string()))?;
                 for script in awaited_scripts {
                     match script.status.success() {
                         true => {
@@ -60,29 +56,31 @@ impl Runner {
                         }
                     }
                 }
-                let path_clone = path.clone();
-                let path_display = path_clone.display();
-                let unsubscribe_success_message = &format!("successfully unsubscribed from path: {}", path_display);
-                match unsubscribe_clone.send(path) {
-                    Ok(_) => {},
-                    Err(e) => {
-                        let message = format!("retrying...");
-                        Logger::log_error_string(&e.to_string());
-                        Logger::log_error_string(&message);
-                        match unsubscribe_clone.send(path_clone) {
-                            Ok(_) => {
-                                Logger::log_info_string(unsubscribe_success_message)
-                            },
-                            Err(e) => {
-                                let message = format!("error while attempting to unsubscribe from path, retrying...");
-                                Logger::log_error_string(&message);
-                                Logger::log_debug_string(&e.to_string())
-                                // need to implement a way to panic core process and probably a way to reset the path cache in the event it becomes unreachable
-                            }
-                        }
-                    }
-                }
+                Self::rec_unsubscribe(unsubscribe_clone, path,2)?;
+                Ok(())
             });
+            scripts_task.await.map_err(ThreadError::JoinError)??
+        };
+    }
+
+    fn rec_unsubscribe(unsub_channel: Sender<PathBuf>, path: PathBuf, num_retries: u8) -> Result<Option<usize>, SubscriberError> {
+        if num_retries <= 0  {
+            return Err(SubscriberError::new_unexpected_error(format!("unable to unsubscribe from path")))
+        }
+        let path_clone = path.clone();
+        let path_display = path_clone.display().to_string();
+        match unsub_channel.send(path_clone) {
+            Ok(_) => {
+                let unsubscribe_success_message = &format!("successfully unsubscribed from path: {}", path_display);
+                Logger::log_info_string(unsubscribe_success_message);
+                return Ok(None)
+            },
+            Err(e) => {
+                let message = format!("error while attempting to unsubscribe from path, retrying...");
+                Logger::log_error_string(&e.to_string());
+                Logger::log_error_string(&message);
+                return Self::rec_unsubscribe(unsub_channel, path, num_retries - 1)
+            }
         }
     }
 
@@ -105,5 +103,4 @@ impl Runner {
             .output()
             .await?)
     }
-
 }

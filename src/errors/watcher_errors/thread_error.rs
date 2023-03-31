@@ -1,9 +1,11 @@
-use std::{sync::{PoisonError, MutexGuard}, process::Child};
+use std::{sync::{PoisonError, MutexGuard}};
 use thiserror::Error;
-use crate::{errors::script_errors::script_error::ScriptError};
+use tokio::task::JoinError;
 
 #[derive(Debug, Error)] 
 pub enum ThreadError {
+    #[error("error joining on a task: `{0}`")]
+    JoinError(#[from] JoinError),
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
     #[error("error with path cache: `{0}`")]
@@ -12,8 +14,6 @@ pub enum ThreadError {
     RuntimeError(#[from] std::io::Error),
     #[error("error communicating between threads: `${0}`")]
     RecvError(#[from] tokio::sync::broadcast::error::RecvError),
-    #[error("error communicating between threads: `${0}`")]
-    SendError(#[from] tokio::sync::broadcast::error::SendError<Result<Child, ScriptError>>),
 }
 
 pub type LockError<'a, T> = PoisonError<MutexGuard<'a, T>>;

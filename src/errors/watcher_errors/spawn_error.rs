@@ -1,5 +1,8 @@
 use strum::ParseError;
 use thiserror::Error;
+use tokio::sync::broadcast::error::RecvError;
+
+use super::{thread_error::ThreadError, subscriber_error::SubscriberError};
 
 #[derive(Debug, Error)]
 pub enum SpawnError {
@@ -9,4 +12,12 @@ pub enum SpawnError {
     ParseError(#[from] ParseError),
     #[error("ierror with path arguments provided to command spawner: `{0}`")]
     ArgError(String),
+    #[error("error with sending path and scripts to spawn thread: `${0}`")]
+    RecvError(RecvError),
+    #[error("`{0}`")]
+    ThreadError(#[from] ThreadError),
+    #[error("`{0}`")]
+    ScriptError(String),
+    #[error("error unsubscribing: `{0}`")]
+    UnsubscriberError(#[from] SubscriberError)
 }

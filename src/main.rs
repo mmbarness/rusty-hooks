@@ -1,8 +1,10 @@
+#![feature(assert_matches)]
 #![feature(trait_alias)]
 #![feature(io_error_more)]
 #![feature(result_option_inspect)]
 #![feature(fs_try_exists)]
 #![feature(is_some_and)]
+#![cfg_attr(test, feature(proc_macro_hygiene))]
 mod logger;
 mod errors;
 mod watcher;
@@ -13,7 +15,7 @@ mod utilities;
 use std::path::PathBuf;
 
 use clap::Parser;
-use errors::watcher_errors::{watcher_error::WatcherError, event_error::EventError};
+use errors::watcher_errors::watcher_error::WatcherError;
 use futures::future::try_join_all;
 use logger::{structs::Logger, error::ErrorLogging, info::InfoLogging};
 use runner::structs::Runner;
@@ -28,9 +30,7 @@ async fn main() {
     let spawn_channel = runner.spawn_channel.0.clone();
     let unsubscribe_channel = runner.unsubscribe_broadcast_channel.0.clone();
 
-    let runner_task = tokio::spawn(async move {
-        runner.init().await
-    });
+    let runner_task = runner.init();
 
     let args = CommandLineArgs::parse();
     Logger::on_load(args.level);

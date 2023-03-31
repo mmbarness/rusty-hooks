@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 use std::{fs,collections::HashMap};
 use itertools::Itertools;
-use log::{info, debug};
-use notify::{Event, EventKind, event::AccessKind};
+use log::{debug};
+use notify::{EventKind, event::AccessKind};
 use crate::logger::debug::DebugLogging;
 use crate::logger::error::ErrorLogging;
 use crate::logger::structs::Logger;
@@ -11,7 +11,6 @@ use crate::scripts::structs::ScriptJSON;
 use crate::errors::script_errors::script_error::{ScriptConfigError, ScriptError};
 use super::structs::{Scripts, Script, ScriptsByEventTrigger};
 
-#[cfg_attr(test, faux::methods(path="super::structs"))]
 impl Scripts {
     pub fn get_by_event(&self, event_kind: &EventKind) -> Vec<Script> {
         match self.scripts_by_event_triggers.get(&event_kind) { 
@@ -151,40 +150,5 @@ impl Scripts {
                 event_type_and_schema_to_insert
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use notify::EventKind;
-
-    use crate::scripts::structs::{Script, Scripts};
-    use std::{path::Path, collections::HashMap};
-
-    #[test]
-    fn can_get_scripts_by_event() {
-        // let event_path = Path::new("/").to_path_buf();
-
-        // let new_script = Script {
-        //     event_triggers: vec!["Modify".to_string()],
-        //     file_path: event_path,
-        //     file_name: "whatever.sh".to_string(),
-        //     failed: None,
-        //     run_delay: 0,
-        // };
-        // let script_clone = new_script.clone();
-
-        // let modify_event_kind = EventKind::Modify(notify::event::ModifyKind::Any);
-        // let modify_event_kind_clone = modify_event_kind.clone();
-
-        // let mut scripts_by_event_kind:HashMap<EventKind, Vec<Script>> = HashMap::new();
-        // scripts_by_event_kind.insert(modify_event_kind, vec![new_script]);
-
-        // let scripts = Scripts::faux();
-
-        // let function_return = scripts.get_by_event(&modify_event_kind_clone);
-
-        // assert_eq!(function_return.len(), 1);
-        // assert_eq!(function_return[0], script_clone);
     }
 }

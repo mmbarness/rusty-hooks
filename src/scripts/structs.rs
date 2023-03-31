@@ -3,7 +3,10 @@ use notify::EventKind;
 use serde::{Deserialize, Serialize};
 use crate::utilities::traits::Utilities;
 
-#[cfg_attr(test, faux::create)]
+#[cfg(test)]
+use mocktopus::macros::*;
+
+#[cfg_attr(test, mockable)]
 #[derive(Debug, Clone)]
 pub struct Scripts {
     pub scripts_by_event_triggers: ScriptsByEventTrigger
@@ -11,9 +14,10 @@ pub struct Scripts {
 
 pub type ScriptsByEventTrigger = HashMap<EventKind, Vec<Script>>; // string identifies the event type, Vec<ScriptSchemas> are all scripts that should run on a given event
 
-#[cfg_attr(test, faux::methods)]
+#[cfg_attr(test, mockable)]
 impl Utilities for Scripts {}
 
+#[cfg_attr(test, mockable)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ScriptJSON {
     pub event_triggers: Vec<String>,
@@ -22,6 +26,7 @@ pub struct ScriptJSON {
     pub run_delay: u8,
 }
 
+#[cfg_attr(test, mockable)]
 #[derive(Debug, Clone)]
 pub struct Script {
     pub event_triggers: Vec<String>,
@@ -32,8 +37,10 @@ pub struct Script {
     pub watch_path: PathBuf,
 }
 
+#[cfg_attr(test, mockable)]
 impl Utilities for Script {}
 
+#[cfg_attr(test, mockable)]
 impl From<ScriptJSON> for Script {
     fn from(json: ScriptJSON) -> Self {
         let path_string = format!("./user_scripts/{}", json.file_name.clone());
@@ -52,6 +59,7 @@ impl From<ScriptJSON> for Script {
     }
 }
 
+#[cfg_attr(test, mockable)]
 impl From<&ScriptJSON> for Script {
     fn from(json: &ScriptJSON) -> Self {
         let path_string = format!("./user_scripts/{}", json.file_name.clone());

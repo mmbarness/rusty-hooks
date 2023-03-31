@@ -1,13 +1,10 @@
-use std::error::Error;
-use std::{path::PathBuf, time::Duration, collections::HashMap, sync::Arc};
+use std::{path::PathBuf, collections::HashMap, sync::Arc};
 use notify::Event;
 use tokio::task::JoinHandle;
-
 use crate::errors::runtime_error::enums::RuntimeError;
 use crate::errors::watcher_errors::event_error::EventError;
 use crate::errors::watcher_errors::subscriber_error::SubscriberError;
 use crate::errors::watcher_errors::thread_error::UnexpectedAnyhowError;
-use crate::errors::watcher_errors::timer_error::TimerError;
 use crate::scripts::structs::Script;
 use crate::runner::types::SpawnMessage;
 use crate::utilities::{thread_types::{BroadcastReceiver, EventMessage, BroadcastSender}, traits::Utilities};
@@ -173,55 +170,56 @@ impl PathSubscriber {
     ) -> Result<(), SubscriberError> {
         let mut subscription_listener = subscribe_channel.subscribe();
         let wait_threads = Self::new_runtime(4, &"timer-threads".to_string())?;
-        while let unvalidated_subscription = subscription_listener.recv().await {
-            match unvalidated_subscription {
-                Ok((path, scripts)) => {
-                    let path_string = path.to_str().unwrap_or(&"bad path parse");
-                    Logger::log_debug_string(&format!("new path: {}", path_string));
-
-                    let events = events_listener.subscribe();
-                    let subscribed_to_new_path = match Self::lock_and_update_paths(path.clone(), paths.clone(), scripts.clone()) {
-                        Ok(subscribed) => subscribed,
-                        Err(e) => {
-                            return Ok(());
-                        }
-                    };
-                    let path_str = path.to_str().unwrap_or("unable to read incoming path into string");
-                    match subscribed_to_new_path {
-                        true => {
-                            Logger::log_info_string(&format!("watching new path at {}",path_str));
-                        },
-                        false => {
-                            Logger::log_info_string(&format!("received new path subscription, but it's already being observed {}", path_str));
-                        }
-                    }
-                    if subscribed_to_new_path {
-                        let spawn_channel = spawn_channel.clone();
-                        // TODO: create channel for a timer and event thread to communicate, and spawn both on wait threads so that start_waiting need not spawn its own
-                        wait_threads.spawn(async move {
-                            Self::start_waiting(path.clone(), events).await;
-                            Logger::log_info_string(&"successfully waited on timer expiration, now running scripts".to_string());
-                            let stuff_to_send = (path.clone(), scripts);
-                            match spawn_channel.send(stuff_to_send) {
-                                Ok(_) => { Logger::log_debug_string(&"sent path and scripts to script runner over spawn channel".to_string())},
-                                Err(e) => {
-                                    Logger::log_error_string(&e.to_string())
-                                }
-                            }
-                        });
-                    }
-                },
+        let mut num_events_errors = 0;
+        let mut last_error: Option<SubscriberError> = None;
+        loop {
+            let (path, scripts) = match subscription_listener.recv().await.map_err(ThreadError::RecvError) {
+                Ok(e) => e,
                 Err(e) => {
-                    Logger::log_error_string(&format!("error while receiving new subscription: {}", e.to_string()))
+                    num_events_errors += 1;
+                    last_error = Some(e.into());
+                    continue;
+                }
+            };
+
+            let path_string = path.to_str().unwrap_or(&"bad path parse");
+            Logger::log_debug_string(&format!("new path: {}", path_string));
+
+            if num_events_errors > 5 {
+                let new_unexpected_error:ThreadError = ThreadError::new_unexpected_error(format!("error while waiting on events to run out at watched path {}", path_string));
+                return Err(last_error.unwrap_or(new_unexpected_error.into()).into())
+            };
+
+            let events = events_listener.subscribe();
+            let subscribed_to_new_path = match Self::lock_and_update_paths(path.clone(), paths.clone(), scripts.clone()) {
+                Ok(subscribed) => subscribed,
+                Err(e) => {
+                    Logger::log_error_string(&format!("unable to subscribe to path: {}", e.to_string()));
+                    continue
+                }
+            };
+
+            let path_str = path.to_str().unwrap_or("unable to read incoming path into string");
+            match subscribed_to_new_path {
+                true => {
+                    Logger::log_info_string(&format!("watching new path at {}",path_str));
+                },
+                false => {
+                    Logger::log_info_string(&format!("received new path subscription, but it's already being observed {}", path_str));
                 }
             }
-        };
-
-        Logger::log_debug_string(&"exiting subscription watcher:".to_string());
-
-        wait_threads.shutdown_timeout(Duration::from_secs(10));
-
-        Ok(())
-    
+            if subscribed_to_new_path {
+                let spawn_channel = spawn_channel.clone();
+                // TODO: create channel for a timer and event thread to communicate, and spawn both on wait threads so that start_waiting need not spawn its own
+                let wait_and_spawn:JoinHandle<Result<(), SubscriberError>> = wait_threads.spawn(async move {
+                    Self::start_waiting(path.clone(), events).await?;
+                    Logger::log_info_string(&"successfully waited on timer expiration, now running scripts".to_string());
+                    let stuff_to_send = (path.clone(), scripts);
+                    spawn_channel.send(stuff_to_send)?;
+                    Ok(())
+                });
+                wait_and_spawn.await.map_err(ThreadError::JoinError)??;
+            }
+        }
     }
 }
