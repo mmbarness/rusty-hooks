@@ -3,6 +3,8 @@ on:
     types: [created]
   workflow_dispatch:
 
+name: Build
+
 jobs:
   release:
     name: release ${{ matrix.target }}
