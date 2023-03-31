@@ -1,10 +1,7 @@
-#![feature(assert_matches)]
-#![feature(trait_alias)]
 #![feature(io_error_more)]
 #![feature(result_option_inspect)]
 #![feature(fs_try_exists)]
 #![feature(is_some_and)]
-#![cfg_attr(test, feature(proc_macro_hygiene))]
 mod logger;
 mod errors;
 mod watcher;
