@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 use std::{fs,collections::HashMap};
 use itertools::Itertools;
-use log::{info, debug};
-use notify::{Event, EventKind, event::AccessKind};
+use log::{debug};
+use notify::{EventKind, event::AccessKind};
+use crate::logger::debug::DebugLogging;
 use crate::logger::error::ErrorLogging;
 use crate::logger::structs::Logger;
 use crate::utilities::traits::Utilities;
@@ -10,7 +11,6 @@ use crate::scripts::structs::ScriptJSON;
 use crate::errors::script_errors::script_error::{ScriptConfigError, ScriptError};
 use super::structs::{Scripts, Script, ScriptsByEventTrigger};
 
-#[cfg_attr(test, faux::methods(path="super::structs"))]
 impl Scripts {
     pub fn get_by_event(&self, event_kind: &EventKind) -> Vec<Script> {
         match self.scripts_by_event_triggers.get(&event_kind) { 
@@ -19,23 +19,42 @@ impl Scripts {
         }
     }
 
-    pub fn validate_scripts(unvalidated_scripts: Vec<ScriptJSON>, script_directory: &String) -> Result<Vec<Script>, ScriptConfigError> {
+    pub fn validate_scripts(watch_path: &PathBuf, unvalidated_scripts: Vec<ScriptJSON>, script_directory: &String) -> Result<Vec<Script>, ScriptConfigError> {
         let script_validations:Vec<Result<(bool, PathBuf), std::io::Error>> = unvalidated_scripts.iter().map(|script| {
             let script_path = Self::build_path(&vec![&script_directory, &script.file_name]);
             let io_error_kind = std::io::ErrorKind::InvalidFilename;
-            let io_error = std::io::Error::new(
+            let script_path_io_error = std::io::Error::new(
                 io_error_kind, 
                 format!(
                     "unable to find script: {}, at path: {}", script.file_name, Self::format_unvalidated_path(&vec![&"./".to_string(), &script_directory, &script.file_name]).to_string()
                 )
             );
-            match script_path {
-                Some(path) => Ok((true, path)),
-                None => Err(io_error)
+            let watch_paths_match = watch_path.clone() == std::path::Path::new(&script.watch_path).to_path_buf();
+            match (script_path, watch_paths_match) {
+                (Some(path), true) => Ok((true, path)),
+                (None, true) => Err(script_path_io_error),
+                (Some(path), false) => Ok((false, path)),
+                (None, false) => Err(script_path_io_error)
             }
         }).collect();
 
-        let errors_found = script_validations.iter().any(|ele| ele.is_err()); 
+        let scripts_matching_watch_path:Vec<&Result<(bool, PathBuf), std::io::Error>> = script_validations.iter().filter(|script| {
+            script.as_ref().is_ok_and(|s| s.0)
+         }).collect();
+
+        let errors_found = script_validations.iter().any(|ele| ele.is_err());
+
+        match scripts_matching_watch_path.len() {
+            a if a <= 0 => {
+                let io_error_kind = std::io::ErrorKind::InvalidFilename;
+                let io_error = std::io::Error::new(
+                    io_error_kind, 
+                    "no scripts matched the provided watch paths"
+                );
+                return Err(ScriptConfigError::IoError(io_error))
+            }
+            _ => {}
+        };
 
         if errors_found {
             for script in script_validations {
@@ -60,21 +79,22 @@ impl Scripts {
         "./user_scripts/".to_string()
     }
     
-    pub fn load() -> Result<Self, ScriptError> {
+    pub fn load(watch_path: &PathBuf) -> Result<Self, ScriptError> {
         let config_path = format!("{}{}", Self::expected_script_directory(), Self::expected_config_filename());
-        let directory_path = Self::expected_script_directory();
+        let script_directory_path = Self::expected_script_directory();
 
         let configs_file = fs::read_to_string(config_path.clone()).map_err(ScriptError::IoError)?;
 
         let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(ScriptConfigError::JsonError)?;
 
-        for file in &files {
-            let message = serde_json::to_string_pretty(&file);
-            info!("script configuration: {:?}", message);
-        }
+        let validated_scripts = Self::validate_scripts(watch_path, files, &script_directory_path)?;
+        let filtered_by_watch_path:Vec<Script> = validated_scripts.iter().filter(|script| {
+            watch_path.clone() == std::path::Path::new(&script.watch_path).to_path_buf()
+        }).map(|s| s.to_owned()).collect();
 
-        let validated_scripts = Self::validate_scripts(files, &directory_path)?;
-        let scripts_by_event_triggers = Self::cache_scripts_by_events(&validated_scripts);        
+        Logger::log_debug_string(&format!("{} scripts found that match provided watch path", filtered_by_watch_path.len()));
+
+        let scripts_by_event_triggers = Self::cache_scripts_by_events(&filtered_by_watch_path);        
         
         Ok(Scripts{
             scripts_by_event_triggers,
@@ -130,40 +150,5 @@ impl Scripts {
                 event_type_and_schema_to_insert
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use notify::EventKind;
-
-    use crate::scripts::structs::{Script, Scripts};
-    use std::{path::Path, collections::HashMap};
-
-    #[test]
-    fn can_get_scripts_by_event() {
-        // let event_path = Path::new("/").to_path_buf();
-
-        // let new_script = Script {
-        //     event_triggers: vec!["Modify".to_string()],
-        //     file_path: event_path,
-        //     file_name: "whatever.sh".to_string(),
-        //     failed: None,
-        //     run_delay: 0,
-        // };
-        // let script_clone = new_script.clone();
-
-        // let modify_event_kind = EventKind::Modify(notify::event::ModifyKind::Any);
-        // let modify_event_kind_clone = modify_event_kind.clone();
-
-        // let mut scripts_by_event_kind:HashMap<EventKind, Vec<Script>> = HashMap::new();
-        // scripts_by_event_kind.insert(modify_event_kind, vec![new_script]);
-
-        // let scripts = Scripts::faux();
-
-        // let function_return = scripts.get_by_event(&modify_event_kind_clone);
-
-        // assert_eq!(function_return.len(), 1);
-        // assert_eq!(function_return[0], script_clone);
     }
 }

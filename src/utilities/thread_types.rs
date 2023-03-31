@@ -11,10 +11,8 @@ pub type Channel<T> = (
 
 pub type EventMessage = Result<Event, Arc<notify::Error>>;
 pub type EventsReceiver = BroadcastReceiver<EventMessage>;
-pub type EventsSender = BroadcastSender<EventMessage>;
 pub type EventChannel = Channel<EventMessage>;
 
-pub type SubscribeReceiver = BroadcastReceiver<SpawnMessage>;
 pub type SubscribeSender = BroadcastSender<SpawnMessage>;
 pub type SpawnSender = BroadcastSender<SpawnMessage>;
 pub type UnsubscribeSender = BroadcastSender<PathBuf>;

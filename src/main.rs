@@ -1,7 +1,10 @@
+#![feature(assert_matches)]
 #![feature(trait_alias)]
 #![feature(io_error_more)]
 #![feature(result_option_inspect)]
 #![feature(fs_try_exists)]
+#![feature(is_some_and)]
+#![cfg_attr(test, feature(proc_macro_hygiene))]
 mod logger;
 mod errors;
 mod watcher;
@@ -9,8 +12,11 @@ mod runner;
 mod scripts;
 mod utilities;
 
+use std::path::PathBuf;
+
 use clap::Parser;
-use errors::watcher_errors::{watcher_error::WatcherError, event_error::EventError};
+use errors::watcher_errors::watcher_error::WatcherError;
+use futures::future::try_join_all;
 use logger::{structs::Logger, error::ErrorLogging, info::InfoLogging};
 use runner::structs::Runner;
 use scripts::structs::Scripts;
@@ -24,11 +30,16 @@ async fn main() {
     let spawn_channel = runner.spawn_channel.0.clone();
     let unsubscribe_channel = runner.unsubscribe_broadcast_channel.0.clone();
 
-    let runner_task = tokio::spawn(async move {
-        runner.init().await
-    });
-    
-    let watcher_task = initialize_watchers(spawn_channel, unsubscribe_channel);
+    let runner_task = runner.init();
+
+    let args = CommandLineArgs::parse();
+    Logger::on_load(args.log_level);
+
+    let watchers:Vec<_> = args.watch_path.iter().map(|watch_path| {
+        initialize_watchers(watch_path, spawn_channel.clone(), unsubscribe_channel.clone())
+    }).collect();
+
+    let awaited_watchers = try_join_all(watchers);
 
     tokio::select! {
         a = runner_task => {
@@ -42,13 +53,13 @@ async fn main() {
                 }
             }
         },
-        b = watcher_task => {
+        b = awaited_watchers => {
             match b {
                 Ok(_) => {
-                    Logger::log_info_string(&format!("event watcher task exited, cleaning up other tasks and exiting").to_string())
+                    Logger::log_info_string(&format!("event watcher tasks exited, cleaning up other tasks and exiting").to_string())
                 },
                 Err(e) => {
-                    Logger::log_error_string(&format!("event watcher failed: {}", e).to_string());
+                    Logger::log_error_string(&format!("event watchers failed: {}", e).to_string());
                     Logger::log_info_string(&format!("cleaning up other tasks and exiting"));
                 }
             }
@@ -56,11 +67,8 @@ async fn main() {
     }
 }
 
-async fn initialize_watchers(spawn_channel: SpawnSender, unsubscribe_channel: UnsubscribeSender) -> Result<(), WatcherError>{
-    let args = CommandLineArgs::parse();
-    Logger::on_load(args.level);
-    
-    let watcher_scripts = match Scripts::load() {
+async fn initialize_watchers(watch_path:&PathBuf, spawn_channel: SpawnSender, unsubscribe_channel: UnsubscribeSender) -> Result<(), WatcherError>{
+    let watcher_scripts = match Scripts::load(watch_path) {
         Ok(script_records) => script_records,
         Err(e) => {
             Logger::log_error_string(&format!("error loading configs: {}", e.to_string()));
@@ -70,6 +78,6 @@ async fn initialize_watchers(spawn_channel: SpawnSender, unsubscribe_channel: Un
 
     let watcher = Watcher::new()?;
 
-    Ok(watcher.start(spawn_channel, unsubscribe_channel, args.watch_path, &watcher_scripts).await?)
+    Ok(watcher.start(spawn_channel, unsubscribe_channel, watch_path.clone(), &watcher_scripts).await?)
 
 }
