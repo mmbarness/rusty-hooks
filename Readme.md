@@ -42,5 +42,3 @@ user@machine:~/dir/rusty-hooks$ target/release/rusty-hooks --watch-path /path/to
 [2023-03-31T13:17:09Z DEBUG rusty_hooks::logger::debug] spawned event watching thread
 [2023-03-31T13:17:09Z DEBUG rusty_hooks::logger::debug] spawned unsubscribe thread
 ```
-
-[![unit tests](https://github.com/mmbarness/rusty-hooks/actions/workflows/test.yml/badge.svg)](https://github.com/mmbarness/rusty-hooks/actions/workflows/test.yml)
