@@ -27,12 +27,20 @@ async fn main() {
     let spawn_channel = runner.spawn_channel.0.clone();
     let unsubscribe_channel = runner.unsubscribe_broadcast_channel.0.clone();
 
-    let runner_task = runner.init();
-
     let args = CommandLineArgs::parse();
     Logger::on_load(args.log_level);
 
-    let watchers:Vec<_> = args.watch_path.iter().map(|watch_path| {
+    let runner_task = runner.init();
+
+    let watch_paths = match Scripts::watch_paths(args.script_config) {
+        Ok(p) => p,
+        Err(e) => {
+            Logger::log_error_string(&e.to_string());
+            panic!()
+        }
+    };
+
+    let watchers:Vec<_> = watch_paths.iter().map(|watch_path| {
         initialize_watchers(watch_path, spawn_channel.clone(), unsubscribe_channel.clone())
     }).collect();
 
@@ -76,5 +84,4 @@ async fn initialize_watchers(watch_path:&PathBuf, spawn_channel: SpawnSender, un
     let watcher = Watcher::new()?;
 
     Ok(watcher.start(spawn_channel, unsubscribe_channel, watch_path.clone(), &watcher_scripts).await?)
-
 }

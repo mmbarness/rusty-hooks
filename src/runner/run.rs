@@ -49,13 +49,18 @@ impl Runner {
                 for script in awaited_scripts {
                     match script.status.success() {
                         true => {
-                            Logger::log_info_string(&format!("script execution successful, printing script stdout...: {:?}", String::from_utf8(script.stdout)));
+                            let stdout_str = String::from_utf8(script.stdout.clone()).unwrap_or("".to_string());
+                            Logger::log_info_string(&format!("script execution successful"));
+                            Logger::log_debug_string(&stdout_str);
                         },
                         false => {
-                            Logger::log_error_string(&format!("one or several of the scripts returned a stderr...: {:?}", String::from_utf8(script.stderr)))
+                            let stderr_str = String::from_utf8(script.stderr.clone()).unwrap_or("".to_string());
+                            Logger::log_error_string(&format!("error with a script"));
+                            Logger::log_error_string(&stderr_str);
                         }
                     }
                 }
+                Logger::log_debug_string(&format!("running rec unsubscribe"));
                 Self::rec_unsubscribe(unsubscribe_clone, path,2)?;
                 Ok(())
             });
@@ -63,16 +68,13 @@ impl Runner {
         };
     }
 
-    fn rec_unsubscribe(unsub_channel: Sender<PathBuf>, path: PathBuf, num_retries: u8) -> Result<Option<usize>, SubscriberError> {
+    fn rec_unsubscribe(unsub_channel: Sender<PathBuf>, path: PathBuf, num_retries: i8) -> Result<Option<usize>, SubscriberError> {
         if num_retries <= 0  {
             return Err(SubscriberError::new_unexpected_error(format!("unable to unsubscribe from path")))
         }
         let path_clone = path.clone();
-        let path_display = path_clone.display().to_string();
         match unsub_channel.send(path_clone) {
             Ok(_) => {
-                let unsubscribe_success_message = &format!("successfully unsubscribed from path: {}", path_display);
-                Logger::log_info_string(unsubscribe_success_message);
                 return Ok(None)
             },
             Err(e) => {
@@ -98,8 +100,9 @@ impl Runner {
                 return Err(ScriptError::IoError(e.into()))
             }
         }
+        let canonicalized_target_path = target_path.canonicalize()?;
         Ok(Command::new(script_path)
-            .arg(target_path)
+            .arg(canonicalized_target_path.as_os_str())
             .output()
             .await?)
     }

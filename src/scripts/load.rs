@@ -1,6 +1,8 @@
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::{fs,collections::HashMap};
+use anyhow::anyhow;
 use itertools::Itertools;
+use itertools::FoldWhile::{Continue, Done};
 use log::{debug};
 use notify::{EventKind, event::AccessKind};
 use crate::logger::debug::DebugLogging;
@@ -78,6 +80,57 @@ impl Scripts {
     fn expected_script_directory() -> String {
         "./user_scripts/".to_string()
     }
+
+    fn default_config_path() -> PathBuf { 
+        Path::new(&format!("{}{}", Self::expected_script_directory(), Self::expected_config_filename())).to_path_buf()
+    }
+
+    pub fn watch_paths(custom_config_path: Option<PathBuf>) -> Result<Vec<PathBuf>, ScriptError> {
+        if custom_config_path.is_some() {
+            let unwrapped_config_path = &custom_config_path.as_ref().unwrap();
+            let config_path_str = unwrapped_config_path.to_str().unwrap_or("");
+            Logger::log_debug_string(&format!("using custom config path of: {}",config_path_str))
+        }
+
+        let config_path = custom_config_path
+            .unwrap_or(Self::default_config_path());
+
+        let configs_file = fs::read_to_string(config_path.clone()).map_err(ScriptError::IoError)?;
+
+        let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(ScriptConfigError::JsonError)?;
+
+        let mut bad_path: Option<PathBuf> = None;
+
+        let watch_paths = files.iter().fold_while(vec![], |mut acc: Vec<PathBuf>, script:&ScriptJSON| {
+            let path = Path::new(&script.watch_path);
+            match (script.enabled, path.try_exists()){
+                (true, Ok(_)) => {
+                    acc.push(path.to_path_buf());
+                    Continue(acc)
+                },
+                (true, Err(_)) => {
+                    bad_path = Some(path.to_path_buf());
+                    Done(acc)
+                }
+                (false, _) => {
+                    Continue(acc)
+                },
+            }
+        }).into_inner();
+
+        match bad_path.is_some() {
+            true => {
+                let path = bad_path.unwrap();
+                let path_string = path.to_str().unwrap_or("unable to parse");
+                let message_string = format!("error with a provided watch path: {}", path_string);
+                let config_error = Into::<ScriptConfigError>::into(anyhow!(message_string));
+                return Err(config_error.into())
+            },
+            _ => {
+                return Ok(watch_paths)
+            }
+        }
+    }
     
     pub fn load(watch_path: &PathBuf) -> Result<Self, ScriptError> {
         let config_path = format!("{}{}", Self::expected_script_directory(), Self::expected_config_filename());
@@ -88,6 +141,11 @@ impl Scripts {
         let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(ScriptConfigError::JsonError)?;
 
         let validated_scripts = Self::validate_scripts(watch_path, files, &script_directory_path)?;
+
+        let watch_paths:Vec<PathBuf> = validated_scripts.iter().map(|s| {
+            s.watch_path.clone()
+        }).collect();
+
         let filtered_by_watch_path:Vec<Script> = validated_scripts.iter().filter(|script| {
             watch_path.clone() == std::path::Path::new(&script.watch_path).to_path_buf()
         }).map(|s| s.to_owned()).collect();
@@ -98,6 +156,7 @@ impl Scripts {
         
         Ok(Scripts{
             scripts_by_event_triggers,
+            watch_paths,
         })
     }
 

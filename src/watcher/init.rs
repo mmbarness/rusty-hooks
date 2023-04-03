@@ -40,7 +40,9 @@ impl Watcher {
     pub async fn start(
         &self, spawn_channel: Sender<(PathBuf, Vec<Script>)>, unsubscribe_channel: UnsubscribeSender, watch_path: PathBuf, scripts: &Scripts
     ) -> Result<(), WatcherError> {
-        let watch_path_clone = watch_path.clone();
+        Logger::log_info_string(&format!("now watching path: {}", &watch_path.to_str().unwrap()));
+        let watch_path_clone_1 = watch_path.clone();
+        let watch_path_clone_2 = watch_path.clone();
         let scripts_clone = scripts.clone();
         let runtime_clone = self.runtime.clone();
         let (mut notifier_handle, (broadcast_sender, events)) = Self::notifier_task().map_err(EventError::NotifyError)?;
@@ -51,11 +53,15 @@ impl Watcher {
         let paths_clone_1 = self.subscriber.paths.clone();
         let paths_clone_2 = self.subscriber.paths.clone();
 
+        let unsubscribe_receiver = unsubscribe_channel.subscribe();
+        
+        Logger::log_debug_string(&format!("num of unsubscribe receivers: {}", unsubscribe_channel.receiver_count()));
+
         let runtime_arc = runtime_clone.try_lock().map_err(RuntimeError::LockError)?;
         
         let unsubscribe_task = runtime_arc.spawn(async move {
             Logger::log_debug_string(&"spawned unsubscribe thread".to_string());
-            PathSubscriber::unsubscribe_task(unsubscribe_channel, paths_clone_1).await
+            PathSubscriber::unsubscribe_task(unsubscribe_receiver, paths_clone_1, watch_path_clone_2).await
         });
         
         let event_channel_for_path_subscriber = broadcast_sender.clone();
@@ -75,7 +81,7 @@ impl Watcher {
             Logger::log_debug_string(&"spawned event watching thread".to_string());
             Self::watch_events(
                 events, 
-                watch_path_clone,
+                watch_path_clone_1,
                 scripts_clone, 
                 subscriber_channel_2
             ).await

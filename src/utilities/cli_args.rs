@@ -8,7 +8,6 @@ pub struct CommandLineArgs {
     /// level of logging
     #[arg(short, long, default_value="error")]
     pub log_level: LevelFilter,
-    /// path to watch
-    #[arg(short, long, use_value_delimiter=true)]
-    pub watch_path: Vec<PathBuf>,
+    #[arg(short, long)]
+    pub script_config: Option<PathBuf>,
 }

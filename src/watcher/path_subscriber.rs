@@ -1,5 +1,6 @@
 use std::{path::PathBuf, collections::HashMap, sync::Arc};
 use notify::Event;
+use tokio::sync::broadcast::Receiver;
 use tokio::task::JoinHandle;
 use crate::errors::runtime_error::enums::RuntimeError;
 use crate::errors::watcher_errors::event_error::EventError;
@@ -7,6 +8,7 @@ use crate::errors::watcher_errors::subscriber_error::SubscriberError;
 use crate::errors::watcher_errors::thread_error::UnexpectedAnyhowError;
 use crate::scripts::structs::Script;
 use crate::runner::types::SpawnMessage;
+use crate::utilities::thread_types::UnsubscribeSender;
 use crate::utilities::{thread_types::{BroadcastReceiver, EventMessage, BroadcastSender}, traits::Utilities};
 use crate::logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
 use super::structs::PathSubscriber;
@@ -27,15 +29,31 @@ impl PathSubscriber {
     pub fn unsubscribe(path: &PathBuf, mut paths: PathsCache<'_>) -> Result<(), PathError> {
         let path_string = path.to_str().unwrap_or("unable to pull string out of path buf");
         let path_hash = Self::hasher(&path_string.to_string());
+        Logger::log_debug_string(&format!("attempting to unsubscribe {} from cache, hashed into {}", path_string, path_hash));
+        paths.iter().for_each(|(hash, (path, scripts))| {
+            let path_string = path.to_str().unwrap_or("");
+            Logger::log_debug_string(&format!("path in cache: {}, hashed into: {}", path_string, hash))
+        });
         match paths.remove_entry(&path_hash) {
             Some(_) => Ok(()),
             None => Err(PathError::UnsubscribeError(format!("didn't find path in cache, didnt unsubscribe")))
         }
     }
 
-    pub async fn unsubscribe_task(unsubscribe_channel: BroadcastSender<PathBuf>, paths: PathsCacheArc) -> Result<(), SubscriberError> {
+    pub async fn unsubscribe_task(mut unsubscribe_channel: Receiver<PathBuf>, paths: PathsCacheArc, watch_path: PathBuf) -> Result<(), SubscriberError> {
         loop {
-            let path = unsubscribe_channel.subscribe().recv().await.map_err(ThreadError::RecvError)?;
+            let path = unsubscribe_channel.recv().await.map_err(ThreadError::RecvError)?;
+            let path_str = path.to_str().unwrap_or("failed path string parse");
+            let watch_path_string = watch_path.to_str().unwrap_or("failed watch path parse");
+            if !Self::path_contains_subdir(&watch_path, &path) {
+                // single runner thread sends unsub messages across possible n watchers. need to filter out irrelevant unsub messages
+                Logger::log_debug_string(&format!("path {} NOT contained within watch path {}. skipping", path_str, watch_path_string));
+                continue;
+            } else {
+                Logger::log_debug_string(&format!("path {} contained within watch path {}", path_str, watch_path_string))
+            }
+            let channel_queue = unsubscribe_channel.len();
+            Logger::log_debug_string(&format!("{} desubscribe messages queued", channel_queue));
             let paths = match paths.try_lock() {
                 Ok(p) => p,
                 Err(e) => {
@@ -43,6 +61,8 @@ impl PathSubscriber {
                     continue;
                 }
             };
+            let path_string = path.to_str().unwrap_or("unable to pull string out of path buf");
+            Logger::log_debug_string(&format!("new path to attempt to unsubscribe from: {}", path_string));
             match PathSubscriber::unsubscribe(&path, paths) {
                 Ok(_) => {
                     let path_display = path.display();
@@ -171,6 +191,7 @@ impl PathSubscriber {
         let mut subscription_listener = subscribe_channel.subscribe();
         let wait_threads = Self::new_runtime(4, &"timer-threads".to_string())?;
         let mut num_events_errors = 0;
+        let mut new_path_num = 0; 
         let mut last_error: Option<SubscriberError> = None;
         loop {
             let (path, scripts) = match subscription_listener.recv().await.map_err(ThreadError::RecvError) {
@@ -211,15 +232,16 @@ impl PathSubscriber {
             if subscribed_to_new_path {
                 let spawn_channel = spawn_channel.clone();
                 // TODO: create channel for a timer and event thread to communicate, and spawn both on wait threads so that start_waiting need not spawn its own
-                let wait_and_spawn:JoinHandle<Result<(), SubscriberError>> = wait_threads.spawn(async move {
+                new_path_num += 1;
+                let _:JoinHandle<Result<(), SubscriberError>> = wait_threads.spawn(async move {
                     Self::start_waiting(path.clone(), events).await?;
                     Logger::log_info_string(&"successfully waited on timer expiration, now running scripts".to_string());
                     let stuff_to_send = (path.clone(), scripts);
                     spawn_channel.send(stuff_to_send)?;
                     Ok(())
                 });
-                wait_and_spawn.await.map_err(ThreadError::JoinError)??;
             }
         }
+        // wait_and_spawn.await.map_err(ThreadError::JoinError)??;
     }
 }
