@@ -60,8 +60,8 @@ impl Runner {
                         }
                     }
                 }
-                Logger::log_debug_string(&format!("running rec unsubscribe"));
-                Self::rec_unsubscribe(unsubscribe_clone, path,2)?;
+                // will recursively attempt to unsubscribe more than once before erroring
+                Self::rec_unsubscribe(unsubscribe_clone, path,5)?;
                 Ok(())
             });
             scripts_task.await.map_err(ThreadError::JoinError)??

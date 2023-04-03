@@ -54,8 +54,6 @@ impl Watcher {
         let paths_clone_2 = self.subscriber.paths.clone();
 
         let unsubscribe_receiver = unsubscribe_channel.subscribe();
-        
-        Logger::log_debug_string(&format!("num of unsubscribe receivers: {}", unsubscribe_channel.receiver_count()));
 
         let runtime_arc = runtime_clone.try_lock().map_err(RuntimeError::LockError)?;
         
