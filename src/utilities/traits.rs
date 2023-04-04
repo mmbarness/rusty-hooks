@@ -31,6 +31,14 @@ pub trait Utilities {
         path.exists().then_some(path)
     }
 
+    fn get_parent_dir_of_file(path:&PathBuf) -> Option<PathBuf> {
+        if path.is_file() {
+            path.parent().and_then(|p| Some(p.to_path_buf()))
+        } else {
+            None
+        }
+    }
+
     fn log_path(path: &Path, log_level: log::Level) -> () {
         let path_string = path.to_str().unwrap_or("error parsing path into string");
         let message = &format!("path: {}", path_string);

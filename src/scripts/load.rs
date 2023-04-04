@@ -72,28 +72,7 @@ impl Scripts {
         }
     }
 
-    fn expected_config_filename() -> String {
-        "scripts_config.json".to_string()
-    }
-
-    fn expected_script_directory() -> String {
-        "./user_scripts/".to_string()
-    }
-
-    fn default_config_path() -> PathBuf { 
-        Path::new(&format!("{}{}", Self::expected_script_directory(), Self::expected_config_filename())).to_path_buf()
-    }
-
-    pub fn watch_paths(custom_config_path: Option<PathBuf>) -> Result<Vec<PathBuf>, ScriptError> {
-        if custom_config_path.is_some() {
-            let unwrapped_config_path = &custom_config_path.as_ref().unwrap();
-            let config_path_str = unwrapped_config_path.to_str().unwrap_or("");
-            Logger::log_debug_string(&format!("using custom config path of: {}",config_path_str))
-        }
-
-        let config_path = custom_config_path
-            .unwrap_or(Self::default_config_path());
-
+    pub fn watch_paths(config_path: PathBuf) -> Result<Vec<PathBuf>, ScriptError> {
         let configs_file = fs::read_to_string(config_path.clone()).map_err(ScriptError::IoError)?;
 
         let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(ScriptConfigError::JsonError)?;
@@ -131,15 +110,18 @@ impl Scripts {
         }
     }
     
-    pub fn load(watch_path: &PathBuf) -> Result<Self, ScriptError> {
-        let config_path = format!("{}{}", Self::expected_script_directory(), Self::expected_config_filename());
-        let script_directory_path = Self::expected_script_directory();
+    pub fn load(watch_path: &PathBuf, scripts_config_path: PathBuf) -> Result<Self, ScriptError> {
+        let script_config_path_str = scripts_config_path.to_str().unwrap_or("");
 
-        let configs_file = fs::read_to_string(config_path.clone()).map_err(ScriptError::IoError)?;
+        let script_directory_path = Scripts::get_parent_dir_of_file(&scripts_config_path)
+            .ok_or(ScriptError::ConfigError("unable to parse parent directory of provided script configuration path".to_string().into()))?;
+        let script_directory_path_string = script_directory_path.to_str().ok_or(ScriptError::ConfigError("unable to parse parent directory of provided script configuration path".to_string().into()))?.to_string();
+
+        let configs_file = fs::read_to_string(script_config_path_str.clone()).map_err(ScriptError::IoError)?;
 
         let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(ScriptConfigError::JsonError)?;
 
-        let validated_scripts = Self::validate_scripts(watch_path, files, &script_directory_path)?;
+        let validated_scripts = Self::validate_scripts(watch_path, files, &script_directory_path_string)?;
 
         let watch_paths:Vec<PathBuf> = validated_scripts.iter().map(|s| {
             s.watch_path.clone()
