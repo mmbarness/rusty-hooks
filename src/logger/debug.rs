@@ -1,5 +1,4 @@
 use log::{debug, log_enabled, Level};
-use super::structs::Logger;
 
 pub trait DebugLogging {
     fn log_debug_string(message: &String) {
@@ -8,5 +7,3 @@ pub trait DebugLogging {
         }
     }
 }
-
-impl DebugLogging for Logger {}

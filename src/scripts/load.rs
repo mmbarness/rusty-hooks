@@ -1,7 +1,8 @@
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::{fs,collections::HashMap};
+use anyhow::anyhow;
 use itertools::Itertools;
-use log::{debug};
+use itertools::FoldWhile::{Continue, Done};
 use notify::{EventKind, event::AccessKind};
 use crate::logger::debug::DebugLogging;
 use crate::logger::error::ErrorLogging;
@@ -71,23 +72,61 @@ impl Scripts {
         }
     }
 
-    fn expected_config_filename() -> String {
-        "scripts_config.json".to_string()
-    }
-
-    fn expected_script_directory() -> String {
-        "./user_scripts/".to_string()
-    }
-    
-    pub fn load(watch_path: &PathBuf) -> Result<Self, ScriptError> {
-        let config_path = format!("{}{}", Self::expected_script_directory(), Self::expected_config_filename());
-        let script_directory_path = Self::expected_script_directory();
-
+    pub fn watch_paths(config_path: PathBuf) -> Result<Vec<PathBuf>, ScriptError> {
         let configs_file = fs::read_to_string(config_path.clone()).map_err(ScriptError::IoError)?;
 
         let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(ScriptConfigError::JsonError)?;
 
-        let validated_scripts = Self::validate_scripts(watch_path, files, &script_directory_path)?;
+        let mut bad_path: Option<PathBuf> = None;
+
+        let watch_paths = files.iter().fold_while(vec![], |mut acc: Vec<PathBuf>, script:&ScriptJSON| {
+            let path = Path::new(&script.watch_path);
+            match (script.enabled, path.try_exists()){
+                (true, Ok(_)) => {
+                    acc.push(path.to_path_buf());
+                    Continue(acc)
+                },
+                (true, Err(_)) => {
+                    bad_path = Some(path.to_path_buf());
+                    Done(acc)
+                }
+                (false, _) => {
+                    Continue(acc)
+                },
+            }
+        }).into_inner();
+
+        match bad_path.is_some() {
+            true => {
+                let path = bad_path.unwrap();
+                let path_string = path.to_str().unwrap_or("unable to parse");
+                let message_string = format!("error with a provided watch path: {}", path_string);
+                let config_error = Into::<ScriptConfigError>::into(anyhow!(message_string));
+                return Err(config_error.into())
+            },
+            _ => {
+                return Ok(watch_paths)
+            }
+        }
+    }
+    
+    pub fn load(watch_path: &PathBuf, scripts_config_path: PathBuf) -> Result<Self, ScriptError> {
+        let script_config_path_str = scripts_config_path.to_str().unwrap_or("");
+
+        let script_directory_path = Scripts::get_parent_dir_of_file(&scripts_config_path)
+            .ok_or(ScriptError::ConfigError("unable to parse parent directory of provided script configuration path".to_string().into()))?;
+        let script_directory_path_string = script_directory_path.to_str().ok_or(ScriptError::ConfigError("unable to parse parent directory of provided script configuration path".to_string().into()))?.to_string();
+
+        let configs_file = fs::read_to_string(script_config_path_str.clone()).map_err(ScriptError::IoError)?;
+
+        let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(ScriptConfigError::JsonError)?;
+
+        let validated_scripts = Self::validate_scripts(watch_path, files, &script_directory_path_string)?;
+
+        let watch_paths:Vec<PathBuf> = validated_scripts.iter().map(|s| {
+            s.watch_path.clone()
+        }).collect();
+
         let filtered_by_watch_path:Vec<Script> = validated_scripts.iter().filter(|script| {
             watch_path.clone() == std::path::Path::new(&script.watch_path).to_path_buf()
         }).map(|s| s.to_owned()).collect();
@@ -98,6 +137,7 @@ impl Scripts {
         
         Ok(Scripts{
             scripts_by_event_triggers,
+            watch_paths,
         })
     }
 
@@ -128,7 +168,7 @@ impl Scripts {
     }
 
     fn update_schema_vec(event_type: &EventKind, script_json: Script, scripts: &mut HashMap<EventKind, Vec<Script>>) -> Vec<Script> {
-        debug!("deciding whether to insert script {:?}", serde_json::to_string_pretty(&script_json.file_name));
+        Logger::log_debug_string(&format!("deciding whether to insert script {:?}", serde_json::to_string_pretty(&script_json.file_name).unwrap_or("unable to parse script file name".to_string())));
         match scripts.get_mut(event_type) {
             Some(acc_event_type_scripts) => { // array of scripts attached to event_type
                 let script_exists = acc_event_type_scripts.into_iter().any(|script| {

@@ -9,7 +9,8 @@ use mocktopus::macros::*;
 #[cfg_attr(test, mockable)]
 #[derive(Debug, Clone)]
 pub struct Scripts {
-    pub scripts_by_event_triggers: ScriptsByEventTrigger
+    pub scripts_by_event_triggers: ScriptsByEventTrigger,
+    pub watch_paths: Vec<PathBuf>
 }
 
 pub type ScriptsByEventTrigger = HashMap<EventKind, Vec<Script>>; // string identifies the event type, Vec<ScriptSchemas> are all scripts that should run on a given event
@@ -20,6 +21,7 @@ impl Utilities for Scripts {}
 #[cfg_attr(test, mockable)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ScriptJSON {
+    pub enabled: bool,
     pub event_triggers: Vec<String>,
     pub file_name: String,
     pub watch_path: String,

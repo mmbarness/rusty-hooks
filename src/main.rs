@@ -22,6 +22,14 @@ use utilities::{thread_types::{SpawnSender, UnsubscribeSender}, cli_args::Comman
 
 #[tokio::main]
 async fn main() {
+    let args = CommandLineArgs::parse();
+    Logger::on_load(args.log_level);
+
+    if args.verify_config_path().is_err() {
+        Logger::log_error_string(&format!("error verifying configuration file"));
+        panic!()
+    }
+
     let runner = Runner::new().unwrap(); // if we cant get a runner up we should panic
     
     let spawn_channel = runner.spawn_channel.0.clone();
@@ -29,11 +37,18 @@ async fn main() {
 
     let runner_task = runner.init();
 
-    let args = CommandLineArgs::parse();
-    Logger::on_load(args.log_level);
+    let scripts_config_path = args.script_config.clone();
 
-    let watchers:Vec<_> = args.watch_path.iter().map(|watch_path| {
-        initialize_watchers(watch_path, spawn_channel.clone(), unsubscribe_channel.clone())
+    let watch_paths = match Scripts::watch_paths(args.script_config) {
+        Ok(p) => p,
+        Err(e) => {
+            Logger::log_error_string(&e.to_string());
+            panic!()
+        }
+    };
+
+    let watchers:Vec<_> = watch_paths.iter().map(|watch_path| {
+        initialize_watchers(watch_path, scripts_config_path.clone(), spawn_channel.clone(), unsubscribe_channel.clone())
     }).collect();
 
     let awaited_watchers = try_join_all(watchers);
@@ -64,8 +79,8 @@ async fn main() {
     }
 }
 
-async fn initialize_watchers(watch_path:&PathBuf, spawn_channel: SpawnSender, unsubscribe_channel: UnsubscribeSender) -> Result<(), WatcherError>{
-    let watcher_scripts = match Scripts::load(watch_path) {
+async fn initialize_watchers(watch_path:&PathBuf, scripts_config_path: PathBuf, spawn_channel: SpawnSender, unsubscribe_channel: UnsubscribeSender) -> Result<(), WatcherError>{
+    let watcher_scripts = match Scripts::load(watch_path, scripts_config_path) {
         Ok(script_records) => script_records,
         Err(e) => {
             Logger::log_error_string(&format!("error loading configs: {}", e.to_string()));
@@ -76,5 +91,4 @@ async fn initialize_watchers(watch_path:&PathBuf, spawn_channel: SpawnSender, un
     let watcher = Watcher::new()?;
 
     Ok(watcher.start(spawn_channel, unsubscribe_channel, watch_path.clone(), &watcher_scripts).await?)
-
 }

@@ -1,36 +1,13 @@
 use tokio::sync::{TryLockError};
-use std::{path::PathBuf, collections::{hash_map::DefaultHasher, HashSet}};
+use std::{path::PathBuf, collections::HashSet};
 use notify::{Event, event::ModifyKind, EventKind};
-use std::hash::{Hash,Hasher};
-use crate::errors::watcher_errors::path_error::PathError;
+use crate::utilities::traits::Utilities;
 use crate::logger::{structs::Logger,debug::DebugLogging, error::ErrorLogging};
 use crate::scripts::structs::Scripts;
 use super::structs::Watcher;
 use crate::utilities::thread_types::{EventsReceiver, SubscribeSender};
 
 impl Watcher {
-    pub fn hasher(path: &PathBuf) -> Result<u64, PathError> {
-        let mut hasher = DefaultHasher::new();
-        let abs_path = path.canonicalize()?;
-        abs_path.hash(& mut hasher);
-        Ok(hasher.finish())
-    }
-
-    fn walk_up_to_event_home_dir<'a>(leaf:PathBuf, root: PathBuf) -> Result<PathBuf,PathError> {
-        // walk upwards from the leaf until we hit the parentmost directory of the event, i.e. the path that is one level below the root
-        let leaf_hash = Self::hasher(&leaf)?;
-        let parent_of_leaf = leaf.parent().ok_or(PathError::TraversalError)?;
-        let parent_of_leaf_hash = Self::hasher(&parent_of_leaf.to_path_buf())?;
-        let root_hash = Self::hasher(&root)?;
-        if parent_of_leaf_hash == root_hash {
-            return Ok(leaf)
-        } else if leaf_hash == root_hash {
-            return Err(PathError::TraversalError)
-        } else {
-            Self::walk_up_to_event_home_dir(parent_of_leaf.to_path_buf(), root)
-        }
-    }
-
     pub fn ignore(event: &notify::Event) -> bool {
         match &event.kind {
             EventKind::Modify(e) => {

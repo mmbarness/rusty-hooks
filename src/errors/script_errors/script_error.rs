@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use thiserror::Error;
 use crate::errors::watcher_errors::spawn_error::SpawnError;
 
@@ -9,8 +10,6 @@ pub enum ScriptError {
     IoError(#[from] std::io::Error),
     #[error("error spawning script process: `{0}`")]
     SpawnError(#[from] SpawnError),
-    #[error("error with script: `{0}`")]
-    GenericMessage(String)
 }
 
 #[derive(Debug, Error)]
@@ -19,4 +18,12 @@ pub enum ScriptConfigError {
     IoError(#[from] std::io::Error),
     #[error("error parsing user script_config.json: `{0}`")]
     JsonError(#[from] serde_json::Error),
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
+}
+
+impl From<String> for ScriptConfigError {
+    fn from(value: String) -> Self {
+        ScriptConfigError::UnexpectedError(anyhow!(value))
+    }
 }

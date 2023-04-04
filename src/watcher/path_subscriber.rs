@@ -1,5 +1,6 @@
 use std::{path::PathBuf, collections::HashMap, sync::Arc};
 use notify::Event;
+use tokio::sync::broadcast::Receiver;
 use tokio::task::JoinHandle;
 use crate::errors::runtime_error::enums::RuntimeError;
 use crate::errors::watcher_errors::event_error::EventError;
@@ -33,9 +34,18 @@ impl PathSubscriber {
         }
     }
 
-    pub async fn unsubscribe_task(unsubscribe_channel: BroadcastSender<PathBuf>, paths: PathsCacheArc) -> Result<(), SubscriberError> {
+    pub async fn unsubscribe_task(mut unsubscribe_channel: Receiver<PathBuf>, paths: PathsCacheArc, watch_path: PathBuf) -> Result<(), SubscriberError> {
         loop {
-            let path = unsubscribe_channel.subscribe().recv().await.map_err(ThreadError::RecvError)?;
+            let path = unsubscribe_channel.recv().await.map_err(ThreadError::RecvError)?;
+            let path_str = path.to_str().unwrap_or("failed path string parse");
+            let watch_path_string = watch_path.to_str().unwrap_or("failed watch path parse");
+            if !Self::path_contains_subdir(&watch_path, &path) {
+                // single runner thread sends unsub messages across possible n watchers. need to filter out irrelevant unsub messages
+                Logger::log_debug_string(&format!("path {} NOT contained within watch path {}. skipping unsubscribe", path_str, watch_path_string));
+                continue;
+            } else {
+                Logger::log_debug_string(&format!("path {} contained within watch path {}, unsubscribing", path_str, watch_path_string))
+            }
             let paths = match paths.try_lock() {
                 Ok(p) => p,
                 Err(e) => {
@@ -47,7 +57,7 @@ impl PathSubscriber {
                 Ok(_) => {
                     let path_display = path.display();
                     let unsubscribe_success_message = &format!("successfully unsubscribed from path: {}", path_display);
-                    Logger::log_info_string(unsubscribe_success_message)
+                    Logger::log_debug_string(unsubscribe_success_message)
                 },
                 Err(e) => {
                     Logger::log_error_string(&format!("{}", e.to_string()))
@@ -202,24 +212,24 @@ impl PathSubscriber {
             let path_str = path.to_str().unwrap_or("unable to read incoming path into string");
             match subscribed_to_new_path {
                 true => {
-                    Logger::log_info_string(&format!("watching new path at {}",path_str));
+                    Logger::log_debug_string(&format!("watching new path at {}",path_str));
                 },
                 false => {
-                    Logger::log_info_string(&format!("received new path subscription, but it's already being observed {}", path_str));
+                    Logger::log_debug_string(&format!("received new path subscription, but it's already being observed {}", path_str));
                 }
             }
             if subscribed_to_new_path {
                 let spawn_channel = spawn_channel.clone();
                 // TODO: create channel for a timer and event thread to communicate, and spawn both on wait threads so that start_waiting need not spawn its own
-                let wait_and_spawn:JoinHandle<Result<(), SubscriberError>> = wait_threads.spawn(async move {
+                let _:JoinHandle<Result<(), SubscriberError>> = wait_threads.spawn(async move {
                     Self::start_waiting(path.clone(), events).await?;
                     Logger::log_info_string(&"successfully waited on timer expiration, now running scripts".to_string());
                     let stuff_to_send = (path.clone(), scripts);
                     spawn_channel.send(stuff_to_send)?;
                     Ok(())
                 });
-                wait_and_spawn.await.map_err(ThreadError::JoinError)??;
             }
         }
+        // wait_and_spawn.await.map_err(ThreadError::JoinError)??;
     }
 }

@@ -1,5 +1,5 @@
 use log::{log_enabled, Level, info, LevelFilter};
-use super::error::ErrorLogging;
+use super::{error::ErrorLogging, debug::DebugLogging, info::InfoLogging};
 
 pub struct Logger {}
 
@@ -18,4 +18,9 @@ impl Logger {
     }
 }
 
-impl ErrorLogging for Logger {}
+impl<T: Logging> DebugLogging for T {}
+impl <T: Logging> ErrorLogging for T {}
+impl <T: Logging> InfoLogging for T {}
+impl Logging for Logger {}
+
+pub trait Logging {}
