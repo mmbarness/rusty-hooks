@@ -3,7 +3,6 @@ use std::{fs,collections::HashMap};
 use anyhow::anyhow;
 use itertools::Itertools;
 use itertools::FoldWhile::{Continue, Done};
-use log::{debug};
 use notify::{EventKind, event::AccessKind};
 use crate::logger::debug::DebugLogging;
 use crate::logger::error::ErrorLogging;
@@ -187,7 +186,7 @@ impl Scripts {
     }
 
     fn update_schema_vec(event_type: &EventKind, script_json: Script, scripts: &mut HashMap<EventKind, Vec<Script>>) -> Vec<Script> {
-        debug!("deciding whether to insert script {:?}", serde_json::to_string_pretty(&script_json.file_name));
+        Logger::log_debug_string(&format!("deciding whether to insert script {:?}", serde_json::to_string_pretty(&script_json.file_name).unwrap_or("unable to parse script file name".to_string())));
         match scripts.get_mut(event_type) {
             Some(acc_event_type_scripts) => { // array of scripts attached to event_type
                 let script_exists = acc_event_type_scripts.into_iter().any(|script| {
