@@ -21,42 +21,39 @@ use log4rs::{
     encode::pattern::PatternEncoder,
     filter::threshold::ThresholdFilter,
 };
+use crate::logger::info::InfoLogging;
 use super::structs::{Logger, LoggerError};
 
 impl Logger {
-    fn os_specific_log_path() -> Option<PathBuf> {
+    fn log_path_if_linux() -> Option<PathBuf> {
         let os = std::env::consts::OS;
 
-        let mut home_dir = BaseDirs::new().and_then(|p| Some(p.home_dir().to_path_buf()))?.canonicalize().ok()?;
-        let rusty_hooks_log_subdir = Path::new("/rusty-hooks/rusty-hooks.log").to_path_buf();
-        let linux_log_path = home_dir.join(&rusty_hooks_log_subdir).to_path_buf();
+        let home_dir = BaseDirs::new().and_then(|p| Some(p.home_dir().to_path_buf()))?.canonicalize().ok()?;
+        let rusty_hooks_log_subdir = Path::new("rusty-hooks/logs/rusty-hooks.log").to_path_buf();
 
-        let mac_log_path = home_dir.join(Path::new("/Library/Logs").join(&rusty_hooks_log_subdir).to_path_buf());
-
-        home_dir.push(rusty_hooks_log_subdir);
+        let log_path_vec:PathBuf = [
+            home_dir.as_path(),
+            rusty_hooks_log_subdir.as_path()
+        ].iter().collect();
 
         match os {
-            "linux" => Some(home_dir),
-            // "macos" => Some(mac_log_path),
+            "linux" => Some(log_path_vec),
             _ => None
         }
     }
 
     pub fn on_load(level: LevelFilter) -> Result<log4rs::Handle, LoggerError> {
-        let file_path = Self::os_specific_log_path();
-        let file_path_str = file_path.clone().unwrap();
-        let whatever = file_path_str.to_str().unwrap();
-
-        println!("{}", whatever);
-
+        let file_path = Self::log_path_if_linux();
         // Build a stderr logger.
         let stderr = ConsoleAppender::builder().target(Target::Stderr).build();
         let stderr_appender = Appender::builder()
-            .filter(Box::new(ThresholdFilter::new(level)))
-            .build("stderr", Box::new(stderr));
+        .filter(Box::new(ThresholdFilter::new(level)))
+        .build("stderr", Box::new(stderr));
     
-        match file_path {
-            Some(path) => {
+    match file_path {
+        Some(path) => {
+                let path_clone = path.clone();
+                let file_path_str = path_clone.to_str().unwrap_or("whatever");
                 let window_size = 3; // log0, log1, log2
                 let fixed_window_roller = FixedWindowRoller::builder().build("log{}",window_size).unwrap();
         
@@ -81,6 +78,8 @@ impl Logger {
                             .build(LevelFilter::Trace),
                     )
                     .unwrap();
+
+                Self::log_info_string(&format!("writing logs to {}", file_path_str));
         
                 Ok(log4rs::init_config(config)?)
             },
