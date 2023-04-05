@@ -10,14 +10,12 @@ repository = "https://github.com/mmbarness/rusty-hooks"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 anyhow = "1.0.70"
-assert_fs = "1.0.12"
 async-process = "1.6.0"
 async-trait = "0.1.60"
 chrono = "0.4.24"
 clap = { version = "4.2.0", features = [ "derive" ]}
+directories = "5.0.0"
 dotenv = "0.15.0"
-env_logger = "0.10.0"
-flume = "0.10.14"
 futures = "0.3.25"
 is_executable = "1.0.1"
 itertools = "0.10.5"
@@ -25,22 +23,20 @@ log = "0.4.17"
 log4rs = {version = "1.2.0", features=["rolling_file_appender", "compound_policy", "delete_roller", "fixed_window_roller"]}
 merkle_hash = "3.2.0"
 notify = { version = "5.1.0", features  = ["serde"]}
-num = "0.4.0"
-quote = "1.0.26"
+oslog = {version = "0.2.0", optional = true}
 reqwest = "0.11.14"
 serde = { version = "1.0.150", features = ["derive"] }
 serde_json = "1.0.89"
-sha2 = "0.10.6"
 strum = "0.24.1"
 strum_macros = "0.24.3"
 thiserror = "1.0.38"
-threadpool = "1.8.1"
-timer = "0.2.0"
 tokio = { version = "1.23.0", features = ["full", "macros", "time"] }
-walkdir = "2.3.3"
 
 [dev-dependencies]
 faux = "0.1.9"
 loom = "0.5.6"
 mocktopus = "0.8.0"
 mockall = "0.11.4"
+
+[features]
+mac = ["oslog"]
