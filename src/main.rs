@@ -23,7 +23,7 @@ use utilities::{thread_types::{SpawnSender, UnsubscribeSender}, cli_args::Comman
 #[tokio::main]
 async fn main() {
     let args = CommandLineArgs::parse();
-    Logger::on_load(args.log_level);
+    Logger::on_load(args.log_level).unwrap();
 
     if args.verify_config_path().is_err() {
         Logger::log_error_string(&format!("error verifying configuration file"));

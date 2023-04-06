@@ -43,3 +43,6 @@ user@machine:~/dir/rusty-hooks$ target/release/rusty-hooks --watch-path /path/to
 [2023-03-31T13:17:09Z DEBUG rusty_hooks::logger::debug] spawned event watching thread
 [2023-03-31T13:17:09Z DEBUG rusty_hooks::logger::debug] spawned unsubscribe thread
 ```
+
+### Logging
+If you're running this on Linux, logs will be written to home/*ur_username*/rusty-hooks/logs/rusty-hooks.log. Once I figure out how to put some macos-specific compilation behind a feature flag I intend to channel logs on mac appropriately, but until then they'll only print to the console.
