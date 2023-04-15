@@ -9,7 +9,7 @@ mod runner;
 mod scripts;
 mod utilities;
 
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 
 use clap::Parser;
 use errors::watcher_errors::watcher_error::WatcherError;
@@ -25,10 +25,8 @@ async fn main() {
     let args = CommandLineArgs::parse();
     Logger::on_load(args.log_level).unwrap();
 
-    if args.verify_config_path().is_err() {
-        Logger::log_error_string(&format!("error verifying configuration file"));
-        panic!()
-    }
+    let config_path = args.get_config_path().unwrap();
+    let config_path_clone = config_path.as_path();
 
     let runner = Runner::new().unwrap(); // if we cant get a runner up we should panic
     
@@ -37,9 +35,7 @@ async fn main() {
 
     let runner_task = runner.init();
 
-    let scripts_config_path = args.script_config.clone();
-
-    let watch_paths = match Scripts::watch_paths(args.script_config) {
+    let watch_paths = match Scripts::watch_paths(&config_path) {
         Ok(p) => p,
         Err(e) => {
             Logger::log_error_string(&e.to_string());
@@ -48,7 +44,7 @@ async fn main() {
     };
 
     let watchers:Vec<_> = watch_paths.iter().map(|watch_path| {
-        initialize_watchers(watch_path, scripts_config_path.clone(), spawn_channel.clone(), unsubscribe_channel.clone())
+        initialize_watchers(watch_path, config_path_clone, spawn_channel.clone(), unsubscribe_channel.clone())
     }).collect();
 
     let awaited_watchers = try_join_all(watchers);
@@ -79,7 +75,7 @@ async fn main() {
     }
 }
 
-async fn initialize_watchers(watch_path:&PathBuf, scripts_config_path: PathBuf, spawn_channel: SpawnSender, unsubscribe_channel: UnsubscribeSender) -> Result<(), WatcherError>{
+async fn initialize_watchers(watch_path:&PathBuf, scripts_config_path: &Path, spawn_channel: SpawnSender, unsubscribe_channel: UnsubscribeSender) -> Result<(), WatcherError>{
     let watcher_scripts = match Scripts::load(watch_path, scripts_config_path) {
         Ok(script_records) => script_records,
         Err(e) => {

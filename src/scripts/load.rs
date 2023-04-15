@@ -72,7 +72,7 @@ impl Scripts {
         }
     }
 
-    pub fn watch_paths(config_path: PathBuf) -> Result<Vec<PathBuf>, ScriptError> {
+    pub fn watch_paths(config_path: &Path) -> Result<Vec<PathBuf>, ScriptError> {
         let configs_file = fs::read_to_string(config_path.clone()).map_err(ScriptError::IoError)?;
 
         let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(ScriptConfigError::JsonError)?;
@@ -110,10 +110,11 @@ impl Scripts {
         }
     }
     
-    pub fn load(watch_path: &PathBuf, scripts_config_path: PathBuf) -> Result<Self, ScriptError> {
+    pub fn load(watch_path: &PathBuf, scripts_config_path: &Path) -> Result<Self, ScriptError> {
+        let config_path_buf = scripts_config_path.to_path_buf();
         let script_config_path_str = scripts_config_path.to_str().unwrap_or("");
 
-        let script_directory_path = Scripts::get_parent_dir_of_file(&scripts_config_path)
+        let script_directory_path = Scripts::get_parent_dir_of_file(&config_path_buf)
             .ok_or(ScriptError::ConfigError("unable to parse parent directory of provided script configuration path".to_string().into()))?;
         let script_directory_path_string = script_directory_path.to_str().ok_or(ScriptError::ConfigError("unable to parse parent directory of provided script configuration path".to_string().into()))?.to_string();
 

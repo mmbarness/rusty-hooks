@@ -1,14 +1,43 @@
-use std::{collections::hash_map::DefaultHasher, hash::{Hash, Hasher}, path::{Path, PathBuf}};
+use std::{collections::hash_map::DefaultHasher, hash::{Hash, Hasher}, path::{Path, PathBuf}, fs::DirEntry};
 use tokio::runtime::Runtime;
 use crate::{utilities::{thread_types::Channel,timer::Timer}, errors::watcher_errors::path_error::PathError};
 use crate::logger::{debug::DebugLogging, structs::Logger, info::InfoLogging, error::ErrorLogging};
 use crate::errors::watcher_errors::thread_error::ThreadError;
+
+pub type DirEntries = Vec<Result<DirEntry, std::io::Error>>;
 
 pub trait Utilities {
     fn hasher(path: &String) -> u64 {
         let mut hasher = DefaultHasher::new();
         path.hash(& mut hasher);
         hasher.finish()
+    }
+
+    fn dir_contains_file_type(dir: &DirEntries, extension: &String) -> bool {
+        let contains = &dir.iter().any(|entry| {
+            let Ok(valid_entry) = entry else { return false };
+            let entry_path = valid_entry.path();
+            let Some(file_extension) = entry_path.extension() else { return false };
+            let Some(ext_str) = file_extension.to_str() else { return false };
+            if ext_str == extension { return true }
+            false
+        });
+        *contains
+    }
+
+    fn get_first_of_file_type(dir: &DirEntries, extension:  &String) -> Option<PathBuf> {
+        let possible_matches:Vec<&Result<std::fs::DirEntry, std::io::Error>> = dir.iter().filter(|file| {
+            let Ok(valid_entry) = file else { return false };
+            let path_buf = valid_entry.path();
+            let entry_path = path_buf.as_path();
+            let Some(file_extension) = entry_path.extension() else { return false };
+            let Some(ext_str) = file_extension.to_str() else { return false };
+            if ext_str == extension { return true }
+            false
+        }).collect();
+        let first_match = possible_matches.iter().next()?;
+        let is_match = first_match.as_ref().ok();
+        Some(is_match?.clone().path())
     }
 
     fn format_unvalidated_path(segments: &Vec<&String>) -> String {
