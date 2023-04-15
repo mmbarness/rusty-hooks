@@ -13,14 +13,14 @@ pub struct CommandLineArgs {
     pub log_level: LevelFilter,
     /// path to configuration file - required
     #[arg(short, long)]
-    pub script_config: PathBuf,
+    pub script_folder: PathBuf,
 }
 
 impl Utilities for CommandLineArgs {}
 
 impl CommandLineArgs {
     pub fn verify_config_path(&self) -> Result<bool, CommandLineError> {
-        let config_path = self.script_config.clone();
+        let config_path = self.script_folder.clone();
         if !config_path.is_dir() { return Ok(false) }
         let _ = CommandLineArgs::get_parent_dir_of_file(&config_path)
             .ok_or(CommandLineError::ScriptConfigError(format!("config path is invalid")))?;
@@ -29,7 +29,7 @@ impl CommandLineArgs {
 
     pub fn get_config_path(&self) -> Result<PathBuf, CommandLineError> {
         let possible_config_error = CommandLineError::ScriptConfigError("unable to verify script configuration file".to_string());
-        let config_path = self.script_config.clone();
+        let config_path = self.script_folder.clone();
         let config_dir = config_path.canonicalize()?.read_dir()?;
         let config_dir_files = config_dir.collect_vec();
         if !Self::dir_contains_file_type(&config_dir_files, &"json".to_string()) { return Err(possible_config_error) }
