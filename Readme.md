@@ -24,14 +24,14 @@ The application requires a folder of scripts with a configuration file. That fil
 
 Every watch path provided in the json will be picked up by rusty-hooks, unless `enabled` is false, of course.
 
-Tell rusty-hooks where to find the configuration file by passing it in the cli, like `--script-config ./scripts/scripts_config.json`. The config file needs to be adjacent to the scripts themselves for the moment. You can also pass a debug level like so: --log_level debug|info|error. The log level defaults to error. 
+Tell rusty-hooks where to find the folder by passing it to the cli, like `--script-config /home/<username>/scripts/`. The config file and the scripts need to be in the same folder. You can also pass a debug level like so: --log_level debug|info|error. The log level defaults to error. 
 
 The event triggers rely on the [notify](https://docs.rs/crate/notify/latest) crate's EventKind structs, and at this point rusty-hooks cannot parse EventKind subcategories e.g. Modify(Name(To)). If you provide an event trigger of Modify, every kind of Modify event will match.
 
 Here's an example command, with output. 
 
 ```
-user@machine:~/dir/rusty-hooks$ target/release/rusty-hooks --watch-path /path/to/watch --log-level debug
+user@machine:~/dir/rusty-hooks$ target/release/rusty-hooks --script-config ./scripts --log-level debug
 [2023-03-31T13:17:09Z INFO  rusty_hooks::logger::structs] log level set to info
 [2023-03-31T13:17:09Z INFO  rusty_hooks::logger::structs] log level set to debug
 [2023-03-31T13:17:09Z INFO  rusty_hooks::logger::structs] log level set to error
