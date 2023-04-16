@@ -45,4 +45,4 @@ user@machine:~/dir/rusty-hooks$ target/release/rusty-hooks --script-config ./scr
 ```
 
 ### Logging
-If you're running this on Linux, logs will be written to home/*ur_username*/rusty-hooks/logs/rusty-hooks.log. Once I figure out how to put some macos-specific compilation behind a feature flag I intend to channel logs on mac appropriately, but until then they'll only print to the console.
+If you're running this on Linux, logs will be written to home/*ur_username*/rusty-hooks/logs/rusty-hooks.log. On mac, they write to ~/Library/rusty-hooks/logs/.
