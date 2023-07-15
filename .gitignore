@@ -1,4 +1,16 @@
-.vscode
 .env
-user_scripts
 target
+
+# IDEs
+.vscode
+
+# logs
+log*
+*.out
+
+# local scripts and ingest script configurations
+scripts
+*.sh
+
+# commit everything inside the example folder
+!/example/*

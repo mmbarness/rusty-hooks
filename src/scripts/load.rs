@@ -169,7 +169,13 @@ impl Scripts {
     }
 
     fn update_schema_vec(event_type: &EventKind, script_json: Script, scripts: &mut HashMap<EventKind, Vec<Script>>) -> Vec<Script> {
-        Logger::log_debug_string(&format!("deciding whether to insert script {:?}", serde_json::to_string_pretty(&script_json.file_name).unwrap_or("unable to parse script file name".to_string())));
+        Logger::log_debug_string(
+            &format!(
+                "deciding whether to attach script {:?} to event type {:?}", 
+                serde_json::to_string_pretty(&script_json.file_name).unwrap_or("unable to parse script file name".to_string()),
+                &event_type,
+            )
+        );
         match scripts.get_mut(event_type) {
             Some(acc_event_type_scripts) => { // array of scripts attached to event_type
                 let script_exists = acc_event_type_scripts.into_iter().any(|script| {

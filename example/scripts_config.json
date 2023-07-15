@@ -1,0 +1,16 @@
+[
+    {
+        "enabled": true,
+        "event_triggers": ["Modify"],
+        "file_name": "ingest_music.sh",
+        "watch_path": "/home/sync_folder/music",
+        "run_delay": 10
+    },
+    {
+        "enabled": true,
+        "event_triggers": ["Modify"],
+        "file_name": "ingest_movies.sh",
+        "watch_path": "/home/sync_folder/movies",
+        "run_delay": 30
+    }
+]
