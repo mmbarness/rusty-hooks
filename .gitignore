@@ -2,3 +2,9 @@
 .env
 user_scripts
 target
+
+scripts
+
+*.out
+
+start_script.sh

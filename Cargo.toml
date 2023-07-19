@@ -7,6 +7,11 @@ description = "Triggers user-provided scripts based on file system events"
 homepage = "https://github.com/mmbarness/rusty-hooks"
 repository = "https://github.com/mmbarness/rusty-hooks"
 
+[profile.dev]
+opt-level = 1              
+overflow-checks = false     # Disable integer overflow checks.
+debug = 2
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 anyhow = "1.0.70"
@@ -16,6 +21,8 @@ chrono = "0.4.24"
 clap = { version = "4.2.0", features = [ "derive" ]}
 directories = "5.0.0"
 dotenv = "0.15.0"
+fd-lock = "4.0.0"
+fs2 = "0.4.3"
 futures = "0.3.25"
 is_executable = "1.0.1"
 itertools = "0.10.5"

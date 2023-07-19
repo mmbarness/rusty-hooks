@@ -1,7 +1,7 @@
 use tokio::{sync::{Mutex, broadcast::Sender, TryLockError}, task::JoinHandle};
 use std::{sync::Arc, path::PathBuf};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher, Config};
-use crate::{logger::{structs::Logger, info::InfoLogging, debug::DebugLogging}, utilities::thread_types::UnsubscribeSender, errors::{watcher_errors::{event_error::EventError, subscriber_error::SubscriberError}, runtime_error::enums::RuntimeError}};
+use crate::{logger::{structs::Logger, info::InfoLogging, debug::DebugLogging}, utilities::thread_types::UnsubscribeSender, errors::{watcher_errors::{event_error::EventError, subscriber_error::SubscriptionError}, runtime_error::enums::RuntimeError}};
 use crate::scripts::structs::{Scripts, Script};
 use crate::errors::watcher_errors::{watcher_error::WatcherError};
 use crate::utilities::{traits::Utilities, thread_types::{EventChannel}};
@@ -36,7 +36,7 @@ impl Watcher {
     
         Ok((watcher, (events_channel_clone, broadcast_rx)))
     }
-    
+
     pub async fn start(
         &self, spawn_channel: Sender<(PathBuf, Vec<Script>)>, unsubscribe_channel: UnsubscribeSender, watch_path: PathBuf, scripts: &Scripts
     ) -> Result<(), WatcherError> {
@@ -93,7 +93,7 @@ impl Watcher {
         Ok(())
     }
     // kills all tasks if any exit
-    async fn handle_all_futures(events: JoinHandle<Result<(), TryLockError>>, subscriptions:JoinHandle<Result<(), SubscriberError>>, unsubscription: JoinHandle<Result<(), SubscriberError>>) -> () {
+    async fn handle_all_futures(events: JoinHandle<Result<(), TryLockError>>, subscriptions:JoinHandle<Result<(), SubscriptionError>>, unsubscription: JoinHandle<Result<(), SubscriptionError>>) -> () {
             tokio::select! {
                 a = events => {
                     match a {
