@@ -3,7 +3,7 @@ on: [ pull_request ]
 name: Test
 
 jobs:
-  check:
+  Check:
     uses: ./.github/workflows/check.yml
-  test:
+  Test:
     uses: ./.github/workflows/test.yml
