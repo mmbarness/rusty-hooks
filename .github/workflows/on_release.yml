@@ -6,19 +6,17 @@ on:
 name: Build Release Artifacts
 
 jobs:
-  artifacts:
-    name: ${{ matrix.build_job }}
+  binaries:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - build_job: binaries
-          - build_job: docker
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
       - name: binaries
         uses: ./github/workflows/build_release_binaries.yml
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
       - name: call workflow
         uses: ./github/workflows/docker.yml
