@@ -16,6 +16,8 @@ jobs:
           - build_job: binaries
           - build_job: docker
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
       - name: binaries
         uses: ./github/workflows/build_release_binaries.yml
       - name: call workflow
