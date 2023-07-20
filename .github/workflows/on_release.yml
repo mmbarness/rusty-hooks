@@ -8,7 +8,15 @@ name: Build Release Artifacts
 jobs:
   artifacts:
     name: ${{ matrix.build_job }}
+  artifacts:
+    name: ${{ matrix.build_job }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build_job: binaries
+          - build_job: docker
     strategy:
       fail-fast: false
       matrix:
