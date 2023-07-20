@@ -10,3 +10,4 @@ jobs:
     uses: ./.github/workflows/build_release_binaries.yml
   docker:
     uses: ./.github/workflows/docker.yml
+    secrets: inherit
