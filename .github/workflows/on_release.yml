@@ -1,0 +1,20 @@
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+name: Build Release Artifacts
+
+jobs:
+  binaries:
+    name: release binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: call workflow
+        uses: ./github/workflows/build_release.yml
+  docker:
+    name: docker image
+    runs-on: ubuntu-latest
+    steps:
+      - name: call workflow
+        uses: ./github/workflows/docker.yml

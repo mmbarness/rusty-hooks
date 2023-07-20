@@ -8,3 +8,5 @@ scripts
 *.out
 
 start_script.sh
+
+*.code-workspace
