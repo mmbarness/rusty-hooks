@@ -1,8 +1,6 @@
 use std::{path::{Path, PathBuf}, fs::File, io::{Write, ErrorKind}};
 use directories::BaseDirs;
-use fd_lock::{RwLock, RwLockWriteGuard};
 use fs2::FileExt;
-
 use crate::{errors::watcher_errors::path_error::PathError, logger::{structs::Logger, debug::DebugLogging}};
 
 #[derive(Debug)]
@@ -32,14 +30,12 @@ impl Lockfile {
             true => {
                 // file exists and is unlocked
                 preliminary_self.lock_and_update_existing()?;
-
                 return Ok(preliminary_self)
             }
             false => {
                 // file doesn't exist, need to write a new one
                 preliminary_self.create_if_nonexistent()?;
                 preliminary_self.acquire_file_lock()?;
-
                 return Ok(preliminary_self)
             }
         }
