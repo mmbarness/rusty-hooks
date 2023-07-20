@@ -1,4 +1,4 @@
-FROM rust:latest
+FROM rustlang/rust:nightly
 
 USER root
 ENV USER root
@@ -15,7 +15,3 @@ COPY . .
 # Build the application binary
 RUN cargo build --release
 
-# docker run "/usr/src/rusty-hooks/target/release/rusty-hooks" -- prod
-#docker run --name epic_jackson --entrypoint /bin/bash rusty-hooks
-#docker run --name <CONTAINER_NAME> --entrypoint /bin/bash <IMAGE_NAME>
-#docker build -t rusty-hooks .
