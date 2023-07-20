@@ -1,6 +1,7 @@
 ## Rusty-Hooks
-![unit tests](https://github.com/mmbarness/rusty-hooks/actions/workflows/test.yml/badge.svg)
 [![Build](https://github.com/mmbarness/rusty-hooks/actions/workflows/on_release.yml/badge.svg?event=release)](https://github.com/mmbarness/rusty-hooks/actions/workflows/on_release.yml)
+![Tests](https://github.com/mmbarness/rusty-hooks/actions/workflows/test.yml/badge.svg)
+[![Compile](https://github.com/mmbarness/rusty-hooks/actions/workflows/check.yml/badge.svg?event=release)](https://github.com/mmbarness/rusty-hooks/actions/workflows/check.yml)
 
 ### What is this
 I found myself needing a way to continually execute arbitrary bash scripts based on filesystem events at certain locations, and didn't really come across any good, simple options. So that's what this is meant to do. If you need something to run when something else happens, somewhere, you might find this useful. My own usecase is when media is downloaded to my server, I want that media to be processed automatically with filebot, a command line application, but I've kept it abstract enough to be pretty generally applicable. Because it's multithreaded it can efficiently watch multiple directories.
