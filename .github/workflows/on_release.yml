@@ -17,6 +17,6 @@ jobs:
           - build_job: docker
     steps:
       - name: binaries
-        uses: ./github/workflows/build_release.yml
+        uses: ./github/workflows/build_release_binaries.yml
       - name: call workflow
         uses: ./github/workflows/docker.yml
