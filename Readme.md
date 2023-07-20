@@ -1,6 +1,6 @@
 ## Rusty-Hooks
 ![unit tests](https://github.com/mmbarness/rusty-hooks/actions/workflows/test.yml/badge.svg)
-[![Build](https://github.com/mmbarness/rusty-hooks/actions/workflows/build_release.yml/badge.svg?event=release)](https://github.com/mmbarness/rusty-hooks/actions/workflows/build_release.yml)
+[![Build](https://github.com/mmbarness/rusty-hooks/actions/workflows/on_release.yml/badge.svg?event=release)](https://github.com/mmbarness/rusty-hooks/actions/workflows/on_release.yml)
 
 ### What is this
 I found myself needing a way to continually execute arbitrary bash scripts based on filesystem events at certain locations, and didn't really come across any good, simple options. So that's what this is meant to do. If you need something to run when something else happens, somewhere, you might find this useful. My own usecase is when media is downloaded to my server, I want that media to be processed automatically with filebot, a command line application, but I've kept it abstract enough to be pretty generally applicable. Because it's multithreaded it can efficiently watch multiple directories.
@@ -66,7 +66,7 @@ Your scripts folder configurations would need to be adjusted to be the correct p
         "run_delay": 10
     },
 ```
-Because I don't run this on anything except for Ubuntu, there might be issues running on other platforms. Not sure. Running this on Docker would offer a way around whatever might surface. 
+Because I don't run this on anything except for Ubuntu, there might be issues running on other platforms. Not sure. Running this on Docker would offer a way around whatever might surface.
 
 ### Logging
 If you're running this on Linux, logs will be written to home/*ur_username*/rusty-hooks/logs/rusty-hooks.log. On mac, they write to ~/Library/rusty-hooks/logs/.
