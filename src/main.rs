@@ -1,7 +1,6 @@
 #![feature(io_error_more)]
 #![feature(result_option_inspect)]
 #![feature(fs_try_exists)]
-#![feature(is_some_and)]
 mod logger;
 mod errors;
 mod watcher;
@@ -26,7 +25,13 @@ async fn main() {
     let args = CommandLineArgs::parse();
     Logger::on_load(args.log_level).unwrap();
 
-    let config_path = args.get_config_path().unwrap();
+    let config_path = match args.get_config_path() {
+        Ok(c) => c,
+        Err(e) => {
+            Logger::log_debug_string(&e.to_string());
+            panic!()
+        }
+    };
     let config_path_clone = config_path.as_path();
 
     if let Err(e) = Lockfile::set(None, None) {

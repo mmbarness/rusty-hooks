@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use itertools::Itertools;
 use log::LevelFilter;
-use crate::errors::command_line_errors::enums::CommandLineError;
+use crate::{errors::command_line_errors::enums::CommandLineError, logger::{structs::Logger, debug::DebugLogging}};
 use super::traits::Utilities;
 
 #[derive(Parser, Debug)]
@@ -22,6 +22,8 @@ impl CommandLineArgs {
     pub fn get_config_path(&self) -> Result<PathBuf, CommandLineError> {
         let possible_config_error = CommandLineError::ScriptConfigError("unable to verify script configuration file".to_string());
         let config_path = self.script_folder.clone();
+        let config_path_str = config_path.to_str().unwrap_or("");
+        Logger::log_debug_string(&format!("config path: {}", config_path_str).to_string());
         let config_dir = config_path.canonicalize()?.read_dir()?;
         let config_dir_files = config_dir.collect_vec();
         if !Self::dir_contains_file_type(&config_dir_files, &"json".to_string()) { return Err(possible_config_error) }
