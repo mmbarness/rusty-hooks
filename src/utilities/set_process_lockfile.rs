@@ -14,19 +14,19 @@ pub struct Lockfile{
 }
 
 impl Lockfile {
-    pub fn set(pid: u32, path: Option<&PathBuf>) -> Result<Self, std::io::Error> {
-        let default_path = Lockfile::default_lockfile_path().expect("unable to confiure path to write pid to");
-        let valid_path = path.unwrap_or(&default_path).clone();
+    pub fn set(pid: Option<u32>, path: Option<&PathBuf>) -> Result<Self, std::io::Error> {
+        let default_path = Lockfile::default_lockfile_path().expect("unable to configure path to write pid to");
+
         let mut preliminary_self = Lockfile {
             locked: false,
-            pid: pid,
-            path: valid_path,
+            pid: pid.unwrap_or(std::process::id()).clone(),
+            path: path.unwrap_or(&default_path).clone(),
             lock: None,
         };
 
         let file_exists = preliminary_self.file_path_valid();
 
-        Logger::log_debug_string(&format!("default path is: {}", default_path.to_str().unwrap()));
+        Logger::log_debug_string(&format!("default path to lockfile is: {}", default_path.to_str().unwrap()));
 
         match file_exists {
             true => {
