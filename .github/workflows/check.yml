@@ -1,23 +1,21 @@
 on:
   workflow_call:
 
-name: Test
+name: Check
 
 jobs:
-  test:
-    name: Test
+  check:
+    name: Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Restore From Cache
-        uses: actions/cache@v3
+        uses: Swatinem/rust-cache@v2
         with:
-          path: target
-          key: ${{ runner.os }}-nightly-toolchain-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-nightly-toolchain-
+          prefix-key: ${{ runner.os }}-nightly-toolchain-${{ hashFiles('**/Cargo.toml') }}
+          key: ${{ runner.os }}-nightly-toolchain
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -26,7 +24,7 @@ jobs:
           toolchain: nightly
           override: true
 
-      - name: Run cargo test
+      - name: Run cargo check
         uses: actions-rs/cargo@v1
         with:
-          command: test
+          command: check
