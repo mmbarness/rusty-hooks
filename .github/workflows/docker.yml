@@ -1,14 +1,20 @@
-name: docker-build-and-push
+name: Docker Build and Push
 
 on:
   workflow_call:
     inputs:
       image-tag:
-        description: 'Tag to use for binaries'
+        description: 'Tag to use for docker image'
         default: 'latest'
         required: false
         type: string
   workflow_dispatch:
+    inputs:
+      image-tag:
+        description: 'Tag to use for docker image'
+        default: 'latest'
+        required: false
+        type: string
 
 jobs:
   docker:

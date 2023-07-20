@@ -1,12 +1,20 @@
-.vscode
 .env
-user_scripts
-target
 
+# personal scripts
 scripts
+user_scripts
+
+#compilations
+target
 
 *.out
 
 start_script.sh
 
+#docker commands
+docker_scripts
+
+#vscode/IDE stuff
 *.code-workspace
+.devcontainer
+.vscode
