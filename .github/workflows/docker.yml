@@ -9,6 +9,12 @@ on:
         required: false
         type: string
   workflow_dispatch:
+    inputs:
+      image-tag:
+        description: 'Tag to use for binaries'
+        default: 'latest'
+        required: false
+        type: string
 
 jobs:
   docker:
