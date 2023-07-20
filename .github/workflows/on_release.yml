@@ -11,10 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: call workflow
-        uses: ./workflows/build_release_binaries.yml
+        uses: ./.github/workflows/build_release_binaries.yml
   docker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: call workflow
-        uses: ./workflows/docker.yml
+        uses: ./.github/workflows/docker.yml
