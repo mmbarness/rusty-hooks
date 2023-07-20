@@ -10,15 +10,16 @@ mod scripts;
 mod utilities;
 
 use std::path::{PathBuf, Path};
-
 use clap::Parser;
 use errors::watcher_errors::watcher_error::WatcherError;
 use futures::future::try_join_all;
-use logger::{structs::Logger, error::ErrorLogging, info::InfoLogging};
+use logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
 use runner::structs::Runner;
 use scripts::structs::Scripts;
-use watcher::{structs::Watcher};
+use watcher::structs::Watcher;
 use utilities::{thread_types::{SpawnSender, UnsubscribeSender}, cli_args::CommandLineArgs};
+
+use crate::utilities::set_process_lockfile::Lockfile;
 
 #[tokio::main]
 async fn main() {
@@ -28,10 +29,15 @@ async fn main() {
     let config_path = args.get_config_path().unwrap();
     let config_path_clone = config_path.as_path();
 
+    if let Err(e) = Lockfile::set(None, None) {
+        Logger::log_debug_string(&e.to_string());
+        Logger::log_error_string(&format!("unable to get a lock on the pid file. this is done to ensure only one instance is running at a time").to_string());
+        panic!()
+    };
+
     let runner = Runner::new().unwrap(); // if we cant get a runner up we should panic
-    
-    let spawn_channel = runner.spawn_channel.0.clone();
-    let unsubscribe_channel = runner.unsubscribe_broadcast_channel.0.clone();
+    let script_task_spawn_channel = runner.spawn_channel.0.clone();
+    let unsub_from_folder_channel = runner.unsubscribe_broadcast_channel.0.clone();
 
     let runner_task = runner.init();
 
@@ -44,7 +50,7 @@ async fn main() {
     };
 
     let watchers:Vec<_> = watch_paths.iter().map(|watch_path| {
-        initialize_watchers(watch_path, config_path_clone, spawn_channel.clone(), unsubscribe_channel.clone())
+        initialize_watchers(watch_path, config_path_clone, script_task_spawn_channel.clone(), unsub_from_folder_channel.clone())
     }).collect();
 
     let awaited_watchers = try_join_all(watchers);

@@ -6,7 +6,7 @@ use crate::{errors::runtime_error::enums::RuntimeError, scripts::structs::Script
 use super::{timer_error::TimerError, thread_error::{ThreadError, UnexpectedAnyhowError}, event_error::EventError};
 
 #[derive(Debug, Error)]
-pub enum SubscriberError {
+pub enum SubscriptionError {
     #[error("error while waiting for watched path to stabilize. `{0}`")]
     EventError(#[from] EventError),
     #[error("error accessing paths currently watching: `{0}`")]
@@ -21,8 +21,10 @@ pub enum SubscriberError {
     ThreadError(#[from] ThreadError),
     #[error("error removing path from watched paths: `{0}`")]
     UnsubscribeSendError(#[from] SendError<PathBuf>),
+    #[error("`{0}`")]
+    UnsubscribeError(String),
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
 }
 
-impl UnexpectedAnyhowError for SubscriberError {}
+impl UnexpectedAnyhowError for SubscriptionError {}

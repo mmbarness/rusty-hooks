@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 use chrono::{DateTime, Utc};
-use tokio::{sync::Mutex, time::{sleep}};
+use tokio::{sync::Mutex, time::sleep};
 use crate::errors::watcher_errors::timer_error::TimerError;
 
 pub type TimerController = Arc<Mutex<(chrono::Duration,DateTime<Utc>)>>;
@@ -41,7 +41,7 @@ impl Timer {
 
 #[cfg(test)]
 mod tests {
-    use loom::{thread};
+    use loom::thread;
     use super::Timer;
 
     #[tokio::test]

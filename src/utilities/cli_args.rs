@@ -19,14 +19,6 @@ pub struct CommandLineArgs {
 impl Utilities for CommandLineArgs {}
 
 impl CommandLineArgs {
-    pub fn verify_config_path(&self) -> Result<bool, CommandLineError> {
-        let config_path = self.script_folder.clone();
-        if !config_path.is_dir() { return Ok(false) }
-        let _ = CommandLineArgs::get_parent_dir_of_file(&config_path)
-            .ok_or(CommandLineError::ScriptConfigError(format!("config path is invalid")))?;
-        Ok(true)
-    }
-
     pub fn get_config_path(&self) -> Result<PathBuf, CommandLineError> {
         let possible_config_error = CommandLineError::ScriptConfigError("unable to verify script configuration file".to_string());
         let config_path = self.script_folder.clone();

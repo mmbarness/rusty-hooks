@@ -1,8 +1,8 @@
-use std::{path::{PathBuf}, sync::{Mutex, Arc}, time::Duration, fs};
+use std::{path::PathBuf, sync::{Mutex, Arc}, time::Duration, fs};
 use async_process::{Command, Output};
 use futures::future::try_join_all;
 use tokio::{sync::broadcast::Sender, task::JoinHandle};
-use crate::{logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}, errors::watcher_errors::{spawn_error::SpawnError, subscriber_error::SubscriberError, thread_error::UnexpectedAnyhowError}};
+use crate::{logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}, errors::watcher_errors::{spawn_error::SpawnError, subscriber_error::SubscriptionError, thread_error::UnexpectedAnyhowError}};
 use crate::scripts::structs::Script;
 use crate::errors::watcher_errors::thread_error::ThreadError;
 use crate::errors::script_errors::script_error::ScriptError;
@@ -68,9 +68,9 @@ impl Runner {
         };
     }
 
-    fn rec_unsubscribe(unsub_channel: Sender<PathBuf>, path: PathBuf, num_retries: i8) -> Result<Option<usize>, SubscriberError> {
+    fn rec_unsubscribe(unsub_channel: Sender<PathBuf>, path: PathBuf, num_retries: i8) -> Result<Option<usize>, SubscriptionError> {
         if num_retries <= 0  {
-            return Err(SubscriberError::new_unexpected_error(format!("unable to unsubscribe from path")))
+            return Err(SubscriptionError::new_unexpected_error(format!("unable to unsubscribe from path")))
         }
         let path_clone = path.clone();
         match unsub_channel.send(path_clone) {

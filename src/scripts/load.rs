@@ -81,16 +81,28 @@ impl Scripts {
 
         let watch_paths = files.iter().fold_while(vec![], |mut acc: Vec<PathBuf>, script:&ScriptJSON| {
             let path = Path::new(&script.watch_path);
-            match (script.enabled, path.try_exists()){
-                (true, Ok(_)) => {
+            let can_read = path.read_dir();
+
+            match (script.enabled, path.is_dir(), can_read){
+                (true, true, Ok(_)) => {
                     acc.push(path.to_path_buf());
                     Continue(acc)
                 },
-                (true, Err(_)) => {
+                (true, true, Err(e)) => {
+                    Logger::log_debug_string(&format!("error reading path entries: {}",
+                        e.to_string()
+                    ));
+                    bad_path = Some(path.to_path_buf());
+                    Done(acc)
+                },
+                (true, false, _) => {
+                    Logger::log_debug_string(&format!("provided path is not a directory: {:?}",
+                        path.to_str()
+                    ));
                     bad_path = Some(path.to_path_buf());
                     Done(acc)
                 }
-                (false, _) => {
+                (false, _, _) => {
                     Continue(acc)
                 },
             }
@@ -105,6 +117,7 @@ impl Scripts {
                 return Err(config_error.into())
             },
             _ => {
+                Logger::log_debug_string(&"all paths validated".to_string());
                 return Ok(watch_paths)
             }
         }

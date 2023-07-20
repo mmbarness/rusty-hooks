@@ -4,14 +4,14 @@ use tokio::sync::broadcast::Receiver;
 use tokio::task::JoinHandle;
 use crate::errors::runtime_error::enums::RuntimeError;
 use crate::errors::watcher_errors::event_error::EventError;
-use crate::errors::watcher_errors::subscriber_error::SubscriberError;
+use crate::errors::watcher_errors::subscriber_error::SubscriptionError;
 use crate::errors::watcher_errors::thread_error::UnexpectedAnyhowError;
 use crate::scripts::structs::Script;
 use crate::runner::types::SpawnMessage;
 use crate::utilities::{thread_types::{BroadcastReceiver, EventMessage, BroadcastSender}, traits::Utilities};
 use crate::logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
 use super::structs::PathSubscriber;
-use crate::errors::watcher_errors::{thread_error::ThreadError,path_error::PathError};
+use crate::errors::watcher_errors::thread_error::ThreadError;
 use super::types::{PathHash, PathsCache, PathsCacheArc};
 
 impl PathSubscriber {
@@ -25,16 +25,16 @@ impl PathSubscriber {
         }
     }
 
-    pub fn unsubscribe(path: &PathBuf, mut paths: PathsCache<'_>) -> Result<(), PathError> {
+    pub fn unsubscribe(path: &PathBuf, mut paths: PathsCache<'_>) -> Result<(), SubscriptionError> {
         let path_string = path.to_str().unwrap_or("unable to pull string out of path buf");
         let path_hash = Self::hasher(&path_string.to_string());
         match paths.remove_entry(&path_hash) {
             Some(_) => Ok(()),
-            None => Err(PathError::UnsubscribeError(format!("didn't find path in cache, didnt unsubscribe")))
+            None => Err(SubscriptionError::UnsubscribeError(format!("didn't find path in cache, didnt unsubscribe")))
         }
     }
 
-    pub async fn unsubscribe_task(mut unsubscribe_channel: Receiver<PathBuf>, paths: PathsCacheArc, watch_path: PathBuf) -> Result<(), SubscriberError> {
+    pub async fn unsubscribe_task(mut unsubscribe_channel: Receiver<PathBuf>, paths: PathsCacheArc, watch_path: PathBuf) -> Result<(), SubscriptionError> {
         loop {
             let path = unsubscribe_channel.recv().await.map_err(ThreadError::RecvError)?;
             let path_str = path.to_str().unwrap_or("failed path string parse");
@@ -66,11 +66,11 @@ impl PathSubscriber {
         }
     }
 
-    fn validate_event_subscription(event:Result<Event, Arc<notify::Error>>, mut num_events_errors: i32) -> Result<(Event, i32), (SubscriberError, i32)> {
+    fn validate_event_subscription(event:Result<Event, Arc<notify::Error>>, mut num_events_errors: i32) -> Result<(Event, i32), (SubscriptionError, i32)> {
         match event {
             Ok(event) => Ok((event, num_events_errors)),
             Err(e) => {
-                let notify_error:SubscriberError = match Arc::try_unwrap(e) {
+                let notify_error:SubscriptionError = match Arc::try_unwrap(e) {
                     Ok(error) => {
                         let event_error:EventError = error.into();
                         event_error.into()
@@ -87,7 +87,7 @@ impl PathSubscriber {
         }
     }
 
-    async fn start_waiting(original_path: PathBuf, mut events_listener: BroadcastReceiver<EventMessage>) -> Result<(), SubscriberError>{
+    async fn start_waiting(original_path: PathBuf, mut events_listener: BroadcastReceiver<EventMessage>) -> Result<(), SubscriptionError>{
         // thread that waits for events at particular path to end based on 1 or 2min timer and returns once either the events receiver closes or the timer runs out
         let new_timer = Self::new_timer(10);
         let timer_controller = new_timer.controller.clone();
@@ -96,11 +96,11 @@ impl PathSubscriber {
             new_timer.wait().await
         });
 
-        let events_thread:JoinHandle<Result<(), SubscriberError>> = tokio::spawn(async move {
+        let events_thread:JoinHandle<Result<(), SubscriptionError>> = tokio::spawn(async move {
             let path_string = original_path.to_str().unwrap_or("unable to pull string out of path buf");
             let hashed_original_path = Self::hasher(&path_string.to_string());
             let mut num_events_errors = 0;
-            let mut last_error: Option<SubscriberError> = None;
+            let mut last_error: Option<SubscriptionError> = None;
             loop {
                 let event = match events_listener.recv().await.map_err(|e| {
                     ThreadError::RecvError(e.into())
@@ -157,7 +157,7 @@ impl PathSubscriber {
         }
     }
 
-    fn lock_and_update_paths(new_path:PathBuf, paths: Arc<tokio::sync::Mutex<HashMap<PathHash, (PathBuf, Vec<Script>)>>>, scripts: Vec<Script>) -> Result<bool, SubscriberError> {
+    fn lock_and_update_paths(new_path:PathBuf, paths: Arc<tokio::sync::Mutex<HashMap<PathHash, (PathBuf, Vec<Script>)>>>, scripts: Vec<Script>) -> Result<bool, SubscriptionError> {
 
         let mut paths_lock = paths.try_lock()?;
 
@@ -177,11 +177,11 @@ impl PathSubscriber {
         spawn_channel: BroadcastSender<SpawnMessage>,
         subscribe_channel: BroadcastSender<(PathBuf, Vec<Script>)>,
         paths: PathsCacheArc
-    ) -> Result<(), SubscriberError> {
+    ) -> Result<(), SubscriptionError> {
         let mut subscription_listener = subscribe_channel.subscribe();
         let wait_threads = Self::new_runtime(4, &"timer-threads".to_string())?;
         let mut num_events_errors = 0;
-        let mut last_error: Option<SubscriberError> = None;
+        let mut last_error: Option<SubscriptionError> = None;
         loop {
             let (path, scripts) = match subscription_listener.recv().await.map_err(ThreadError::RecvError) {
                 Ok(e) => e,
@@ -221,7 +221,7 @@ impl PathSubscriber {
             if subscribed_to_new_path {
                 let spawn_channel = spawn_channel.clone();
                 // TODO: create channel for a timer and event thread to communicate, and spawn both on wait threads so that start_waiting need not spawn its own
-                let _:JoinHandle<Result<(), SubscriberError>> = wait_threads.spawn(async move {
+                let _:JoinHandle<Result<(), SubscriptionError>> = wait_threads.spawn(async move {
                     Self::start_waiting(path.clone(), events).await?;
                     Logger::log_info_string(&"successfully waited on timer expiration, now running scripts".to_string());
                     let stuff_to_send = (path.clone(), scripts);
