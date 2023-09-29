@@ -130,7 +130,7 @@ impl Lockfile {
             (false, None) => {
                 // no useable path
                 let io_error_kind = std::io::ErrorKind::InvalidFilename;
-                let custom_error2 = std::io::Error::new(ErrorKind::InvalidFilename, PathError::InvalidPath("error with path provided for lockfile".into()));
+                let custom_error2 = std::io::Error::new(io_error_kind, PathError::InvalidPath("error with path provided for lockfile".into()));
                 Err(custom_error2)
             }
         }

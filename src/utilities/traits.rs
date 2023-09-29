@@ -37,7 +37,7 @@ pub trait Utilities {
         }).collect();
         let first_match = possible_matches.iter().next()?;
         let is_match = first_match.as_ref().ok();
-        Some(is_match?.clone().path())
+        Some(is_match?.path())
     }
 
     fn format_unvalidated_path(segments: &Vec<&String>) -> String {

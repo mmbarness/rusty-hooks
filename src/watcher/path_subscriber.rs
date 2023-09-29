@@ -2,6 +2,7 @@ use std::{path::PathBuf, collections::HashMap, sync::Arc};
 use notify::Event;
 use tokio::sync::broadcast::Receiver;
 use tokio::task::JoinHandle;
+use tokio::runtime::Handle;
 use crate::errors::runtime_error::enums::RuntimeError;
 use crate::errors::watcher_errors::event_error::EventError;
 use crate::errors::watcher_errors::subscriber_error::SubscriptionError;
@@ -83,7 +84,7 @@ impl PathSubscriber {
                 num_events_errors += 1;
                 Logger::log_error_string(&format!("error receiving events while waiting on timer to expire: {}", notify_error.to_string()));
                 Err((notify_error, num_events_errors))
-             }  
+            }
         }
     }
 
@@ -92,11 +93,13 @@ impl PathSubscriber {
         let new_timer = Self::new_timer(10);
         let timer_controller = new_timer.controller.clone();
 
-        let timer_thread = tokio::spawn(async move {
+        let handle = Handle::current();
+        let timer_thread = handle.spawn(async move {
+            println!("now running in the existing Runtime");
             new_timer.wait().await
         });
 
-        let events_thread:JoinHandle<Result<(), SubscriptionError>> = tokio::spawn(async move {
+        let events_thread:JoinHandle<Result<(), SubscriptionError>> = handle.spawn(async move {
             let path_string = original_path.to_str().unwrap_or("unable to pull string out of path buf");
             let hashed_original_path = Self::hasher(&path_string.to_string());
             let mut num_events_errors = 0;
@@ -133,7 +136,7 @@ impl PathSubscriber {
                         let path_string = ancestor.to_str().unwrap_or("unable to pull string out of path buf");
                         let ancestor_hash = Self::hasher(&path_string.to_string());
                         ancestor_hash == hashed_original_path
-                    }); 
+                    });
                     cur_path_parent
                 });
                 if path_overlap {
@@ -163,7 +166,7 @@ impl PathSubscriber {
 
         let path_string = new_path.to_str().unwrap_or("unable to pull string out of path buf");
         let path_hash = Self::hasher(&path_string.to_string());
-        
+
         // should only return true if the path isn't found in the datastructure
         let should_add_path = paths_lock.get(&path_hash).is_none();
 
@@ -230,6 +233,5 @@ impl PathSubscriber {
                 });
             }
         }
-        // wait_and_spawn.await.map_err(ThreadError::JoinError)??;
     }
 }

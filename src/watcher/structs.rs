@@ -1,4 +1,4 @@
-use tokio::{sync::Mutex, runtime::Runtime};
+use tokio::runtime::Runtime;
 use std::sync::Arc;
 use std::{path::PathBuf, collections::HashMap};
 use super::types::PathHash;
@@ -7,7 +7,7 @@ use crate::utilities::{thread_types::{SubscribeChannel, UnsubscribeChannel}, tra
 
 #[derive(Debug)]
 pub struct Watcher {
-    pub runtime: Arc<Mutex<Runtime>>,
+    pub runtime: Runtime,
     pub subscriber: PathSubscriber,
 }
 
