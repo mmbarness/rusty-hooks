@@ -1,4 +1,4 @@
-use std::{path::{Path, PathBuf}, fs::File, io::{Write, ErrorKind}};
+use std::{path::{Path, PathBuf}, fs::File, io::Write};
 use directories::BaseDirs;
 use fs2::FileExt;
 use crate::{errors::watcher_errors::path_error::PathError, logger::{structs::Logger, debug::DebugLogging}};

@@ -1,4 +1,4 @@
-use tokio::sync::{TryLockError};
+use tokio::sync::TryLockError;
 use std::{path::PathBuf, collections::HashSet};
 use notify::{Event, event::ModifyKind, EventKind};
 use crate::utilities::traits::Utilities;
@@ -43,7 +43,7 @@ impl Watcher {
             acc.insert(events_root_dir.clone()); // returns true  or false based on whether or not it already existed, but we dont care
             acc
         })
-        
+
     }
 
     pub async fn watch_events(
@@ -52,6 +52,7 @@ impl Watcher {
         scripts: Scripts,
         subscribe_channel: SubscribeSender
     ) -> Result<(), TryLockError> {
+        Logger::log_debug_string(&"spawned event watching thread".to_string());
         while let Ok(res) = events_receiver.recv().await {
             match res {
                 Ok(event) => {
@@ -62,7 +63,7 @@ impl Watcher {
                         false => {
                             Logger::log_debug_string(&format!("not ignoring event of kind: {:?}", &event.kind));
                             let unique_event_home_dirs = Self::get_unique_event_home_dirs(
-                                &event, 
+                                &event,
                                 root_dir.clone(),
                             );
                             for event_home_dir in unique_event_home_dirs {
@@ -83,6 +84,6 @@ impl Watcher {
             }
         }
         Ok(())
-    } 
+    }
 
 }

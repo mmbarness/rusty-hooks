@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::{Mutex, Arc}};
+use std::path::PathBuf;
 use tokio::sync::broadcast::{Receiver, Sender};
 use crate::utilities::traits::Utilities;
 use crate::scripts::structs::Script;

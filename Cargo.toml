@@ -8,7 +8,7 @@ homepage = "https://github.com/mmbarness/rusty-hooks"
 repository = "https://github.com/mmbarness/rusty-hooks"
 
 [profile.dev]
-opt-level = 1              
+opt-level = 1
 overflow-checks = false     # Disable integer overflow checks.
 debug = 2
 
@@ -26,15 +26,20 @@ futures = "0.3.25"
 is_executable = "1.0.1"
 itertools = "0.10.5"
 log = "0.4.17"
-log4rs = {version = "1.2.0", features=["rolling_file_appender", "compound_policy", "delete_roller", "fixed_window_roller"]}
+log4rs = { version = "1.2.0",features = [ "rolling_file_appender","compound_policy", "delete_roller", "fixed_window_roller", "file_appender"]}
+log4rs-syslog = "3.0.3"
 merkle_hash = "3.2.0"
 notify = { version = "5.1.0", features  = ["serde"]}
+opentelemetry = { version = "0.20.0", features = ["rt-tokio", "logs", "metrics", "trace"]}
+opentelemetry-otlp = "0.13.0"
+opentelemetry-stdout = "0.1.0"
 oslog = {version = "0.2.0", optional = true}
 reqwest = "0.11.14"
 serde = { version = "1.0.150", features = ["derive"] }
 serde_json = "1.0.89"
 strum = "0.24.1"
 strum_macros = "0.24.3"
+syslog = "6.1.0"
 thiserror = "1.0.38"
 tokio = { version = "1.23.0", features = ["full", "macros", "time"] }
 

@@ -38,7 +38,7 @@ impl Runner {
                 for script in awaited_scripts {
                     match script.status.success() {
                         true => {
-                            let stdout_str = String::from_utf8(script.stdout.clone()).unwrap_or("".to_string());
+                            let stdout_str = format!("standard output from script: {}", String::from_utf8(script.stdout.clone()).unwrap_or("".to_string()));
                             Logger::log_info_string(&format!("script execution successful"));
                             Logger::log_debug_string(&stdout_str);
                         },
