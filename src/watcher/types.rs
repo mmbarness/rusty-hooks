@@ -1,4 +1,4 @@
-use std::{sync::{Arc}, collections::HashMap, path::PathBuf};
+use std::{sync::Arc, collections::HashMap, path::PathBuf};
 use crate::{runner::types::SpawnMessage, scripts::structs::Script};
 use tokio::sync::MutexGuard;
 use u64 as path_hash;

@@ -1,8 +1,8 @@
-use std::{sync::{PoisonError, MutexGuard}};
+use std::sync::{PoisonError, MutexGuard};
 use thiserror::Error;
 use tokio::task::JoinError;
 
-#[derive(Debug, Error)] 
+#[derive(Debug, Error)]
 pub enum ThreadError {
     #[error("error joining on a task: `{0}`")]
     JoinError(#[from] JoinError),

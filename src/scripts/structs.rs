@@ -64,7 +64,7 @@ impl From<ScriptJSON> for Script {
 #[cfg_attr(test, mockable)]
 impl From<&ScriptJSON> for Script {
     fn from(json: &ScriptJSON) -> Self {
-        let path_string = format!("./user_scripts/{}", json.file_name.clone());
+        let path_string = format!("./scripts/{}", json.file_name.clone());
         let as_path = Path::new(&path_string).to_path_buf();
 
         let watch_path = Path::new(&json.watch_path).to_path_buf();
