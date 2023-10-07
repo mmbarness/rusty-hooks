@@ -3,10 +3,8 @@ use std::{fs,collections::HashMap};
 use anyhow::anyhow;
 use itertools::Itertools;
 use itertools::FoldWhile::{Continue, Done};
+use log::{debug, error};
 use notify::{EventKind, event::AccessKind};
-use crate::logger::debug::DebugLogging;
-use crate::logger::error::ErrorLogging;
-use crate::logger::structs::Logger;
 use crate::utilities::traits::Utilities;
 use crate::scripts::structs::ScriptJSON;
 use crate::errors::script_errors::script_error::{ScriptConfigError, ScriptError};
@@ -59,7 +57,7 @@ impl Scripts {
 
         if errors_found {
             for script in script_validations {
-                let _ = script.as_ref().inspect_err(|e| Logger::log_error_string(&e.to_string()));
+                let _ = script.as_ref().inspect_err(|e| error!("{}", e));
             }
             let io_error_kind = std::io::ErrorKind::InvalidFilename;
             let io_error = std::io::Error::new(
@@ -89,16 +87,12 @@ impl Scripts {
                     Continue(acc)
                 },
                 (true, true, Err(e)) => {
-                    Logger::log_debug_string(&format!("error reading path entries: {}",
-                        e.to_string()
-                    ));
+                    debug!("error reading path entries: {}", e);
                     bad_path = Some(path.to_path_buf());
                     Done(acc)
                 },
                 (true, false, _) => {
-                    Logger::log_debug_string(&format!("provided path is not a directory: {:?}",
-                        path.to_str()
-                    ));
+                    debug!("provided path is not a directory: {:?}",path.to_str());
                     bad_path = Some(path.to_path_buf());
                     Done(acc)
                 }
@@ -117,7 +111,7 @@ impl Scripts {
                 return Err(config_error.into())
             },
             _ => {
-                Logger::log_debug_string(&"all paths validated".to_string());
+                debug!("all paths validated");
                 return Ok(watch_paths)
             }
         }
@@ -145,7 +139,7 @@ impl Scripts {
             watch_path.clone() == std::path::Path::new(&script.watch_path).to_path_buf()
         }).map(|s| s.to_owned()).collect();
 
-        Logger::log_debug_string(&format!("{} scripts found that match provided watch path", filtered_by_watch_path.len()));
+        debug!("{} scripts found that match provided watch path", filtered_by_watch_path.len());
 
         let scripts_by_event_triggers = Self::cache_scripts_by_events(&filtered_by_watch_path);
 
@@ -182,7 +176,7 @@ impl Scripts {
     }
 
     fn update_schema_vec(event_type: &EventKind, script_json: Script, scripts: &mut HashMap<EventKind, Vec<Script>>) -> Vec<Script> {
-        Logger::log_debug_string(&format!("deciding whether to insert script {:?}", serde_json::to_string_pretty(&script_json.file_name).unwrap_or("unable to parse script file name".to_string())));
+        debug!("deciding whether to insert script {:?}", serde_json::to_string_pretty(&script_json.file_name).unwrap_or("unable to parse script file name".to_string()));
         match scripts.get_mut(event_type) {
             Some(acc_event_type_scripts) => { // array of scripts attached to event_type
                 let script_exists = acc_event_type_scripts.into_iter().any(|script| {

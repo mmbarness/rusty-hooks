@@ -1,4 +1,5 @@
 use std::{path::PathBuf, collections::HashMap, sync::Arc};
+use log::{debug, error, info};
 use notify::Event;
 use tokio::sync::broadcast::Receiver;
 use tokio::task::JoinHandle;
@@ -10,7 +11,6 @@ use crate::errors::watcher_errors::thread_error::UnexpectedAnyhowError;
 use crate::scripts::structs::Script;
 use crate::runner::types::SpawnMessage;
 use crate::utilities::{thread_types::{BroadcastReceiver, EventMessage, BroadcastSender}, traits::Utilities};
-use crate::logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
 use super::structs::PathSubscriber;
 use crate::errors::watcher_errors::thread_error::ThreadError;
 use super::types::{PathHash, PathsCache, PathsCacheArc};
@@ -38,22 +38,22 @@ impl PathSubscriber {
     }
 
     pub async fn unsubscribe_task(mut unsubscribe_channel: Receiver<PathBuf>, paths: PathsCacheArc, watch_path: PathBuf) -> Result<(), SubscriptionError> {
-        Logger::log_debug_string(&"spawned unsubscribe thread".to_string());
+        debug!("spawned unsubscribe thread");
         loop {
             let path = unsubscribe_channel.recv().await.map_err(ThreadError::RecvError)?;
             let path_str = path.to_str().unwrap_or("failed path string parse");
             let watch_path_string = watch_path.to_str().unwrap_or("failed watch path parse");
             if !Self::path_contains_subdir(&watch_path, &path) {
                 // single runner thread sends unsub messages across possible n watchers. need to filter out irrelevant unsub messages
-                Logger::log_debug_string(&format!("path {} NOT contained within watch path {}. skipping unsubscribe", path_str, watch_path_string));
+                debug!("path {} NOT contained within watch path {}. skipping unsubscribe", path_str, watch_path_string);
                 continue;
             } else {
-                Logger::log_debug_string(&format!("path {} contained within watch path {}, unsubscribing", path_str, watch_path_string))
+                debug!("path {} contained within watch path {}, unsubscribing", path_str, watch_path_string)
             }
             let paths = match paths.try_lock() {
                 Ok(p) => p,
                 Err(e) => {
-                    Logger::log_error_string(&format!("unable to lock onto paths while trying to unsubscribe: {:?}", e.to_string()));
+                    error!("unable to lock onto paths while trying to unsubscribe: {:?}", e);
                     continue;
                 }
             };
@@ -61,10 +61,10 @@ impl PathSubscriber {
                 Ok(_) => {
                     let path_display = path.display();
                     let unsubscribe_success_message = &format!("successfully unsubscribed from path: {}", path_display);
-                    Logger::log_debug_string(unsubscribe_success_message)
+                    debug!("{}", unsubscribe_success_message)
                 },
                 Err(e) => {
-                    Logger::log_error_string(&format!("{}", e.to_string()))
+                    error!("{}", e)
                 }
             }
         }
@@ -85,7 +85,7 @@ impl PathSubscriber {
                     }
                 };
                 num_events_errors += 1;
-                Logger::log_error_string(&format!("error receiving events while waiting on timer to expire: {}", notify_error.to_string()));
+                error!("error receiving events while waiting on timer to expire: {}", notify_error);
                 Err((notify_error, num_events_errors))
             }
         }
@@ -136,7 +136,7 @@ impl PathSubscriber {
         subscribe_channel: BroadcastSender<(PathBuf, Vec<Script>)>,
         paths: PathsCacheArc
     ) -> Result<(), SubscriptionError> {
-        Logger::log_debug_string(&"spawned subscribe thread".to_string());
+        debug!("spawned subscribe thread");
         let mut subscription_listener = subscribe_channel.subscribe();
         let mut num_events_errors = 0;
         let mut last_error: Option<SubscriptionError> = None;
@@ -151,7 +151,7 @@ impl PathSubscriber {
             };
 
             let path_string = path.to_str().unwrap_or(&"bad path parse");
-            Logger::log_debug_string(&format!("new path: {}", path_string));
+            debug!("new path: {}", path_string);
 
             if num_events_errors > 5 {
                 let new_unexpected_error:ThreadError = ThreadError::new_unexpected_error(format!("error while waiting on events to run out at watched path {}", path_string));
@@ -161,7 +161,7 @@ impl PathSubscriber {
             let subscribed_to_new_path = match Self::lock_and_update_paths(path.clone(), paths.clone(), scripts.clone()) {
                 Ok(subscribed) => subscribed,
                 Err(e) => {
-                    Logger::log_error_string(&format!("unable to subscribe to path: {}", e.to_string()));
+                    error!("unable to subscribe to path: {}", e);
                     continue
                 }
             };
@@ -169,10 +169,10 @@ impl PathSubscriber {
             let path_str = path.to_str().unwrap_or("unable to read incoming path into string");
             match subscribed_to_new_path {
                 true => {
-                    Logger::log_debug_string(&format!("watching new path at {}",path_str));
+                    debug!("watching new path at {}",path_str);
                 },
                 false => {
-                    Logger::log_debug_string(&format!("received new path subscription, but it's already being observed {}", path_str));
+                    debug!("received new path subscription, but it's already being observed {}", path_str);
                 }
             }
             if subscribed_to_new_path {
@@ -199,7 +199,7 @@ impl PathSubscriber {
         wait_threads.spawn(async move {
             let wait_out_new_events_path = Self::start_waiting(path.clone(), events);
             wait_out_new_events_path.await?;
-            Logger::log_info_string(&"successfully waited on timer expiration, now running scripts".to_string());
+            info!("successfully waited on timer expiration, now running scripts");
             let stuff_to_send = (path.clone(), scripts);
             spawn_channel.send(stuff_to_send)?;
             Ok(())

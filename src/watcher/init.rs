@@ -1,7 +1,8 @@
+use log::{debug, info};
 use tokio::{sync::{broadcast::Sender, TryLockError}, task::JoinHandle};
 use std::{sync::Arc, path::PathBuf};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher, Config};
-use crate::{logger::{structs::Logger, info::InfoLogging, debug::DebugLogging}, utilities::thread_types::UnsubscribeSender, errors::watcher_errors::{event_error::EventError, subscriber_error::SubscriptionError}};
+use crate::{utilities::thread_types::UnsubscribeSender, errors::watcher_errors::{event_error::EventError, subscriber_error::SubscriptionError}};
 use crate::scripts::structs::{Scripts, Script};
 use crate::errors::watcher_errors::watcher_error::WatcherError;
 use crate::utilities::{traits::Utilities, thread_types::EventChannel};
@@ -46,7 +47,7 @@ impl Watcher {
     pub async fn start(
         &self, spawn_channel: Sender<(PathBuf, Vec<Script>)>, unsubscribe_channel: UnsubscribeSender, watch_path: PathBuf, scripts: &Scripts
     ) -> Result<(), WatcherError> {
-        Logger::log_info_string(&format!("now watching path: {}", &watch_path.to_str().unwrap()));
+        info!("now watching path: {}", &watch_path.to_str().unwrap());
         let (
             mut notifier_handle,
             (
@@ -135,42 +136,42 @@ impl Watcher {
     /// Uses [`tokio::select!`] to kill *all* futures if *any* fail. If the event loop exits,
     /// for example, the task watching for new path subscriptions will too.
     async fn handle_all_futures(events: JoinHandle<Result<(), TryLockError>>, subscriptions:JoinHandle<Result<(), SubscriptionError>>, unsubscription: JoinHandle<Result<(), SubscriptionError>>) -> () {
-        Logger::log_debug_string(&"now awaiting events, subscriptions, and unsubscriptions task".to_string());
+        debug!("now awaiting events, subscriptions, and unsubscriptions task");
         tokio::select! {
             a = events => {
-                Logger::log_debug_string(&"events_task exited".to_string());
+                debug!("events_task exited");
                 match a {
                     Ok(_) => {
-                        Logger::log_debug_string(&"events_task exited".to_string());
+                        debug!("events_task exited");
                     },
                     Err(e) => {
-                        Logger::log_debug_string(&format!("events_task failed: {}, exiting", &e.to_string()));
+                        debug!("events_task failed: {}, exiting", e);
                     }
                 }
             },
             b = subscriptions => {
-                Logger::log_debug_string(&"subscription_task exited".to_string());
+                debug!("subscription_task exited");
                 match b {
                     Ok(_) => {
-                        Logger::log_debug_string(&"subscription_task exited".to_string());
+                        debug!("subscription_task exited");
                     },
                     Err(e) => {
-                        Logger::log_debug_string(&format!("subscription_task failed: {}, exiting", &e.to_string()));
+                        debug!("subscription_task failed: {}, exiting", e);
                     }
                 }
             },
             c = unsubscription => {
-                Logger::log_debug_string(&"unsubscribe_task exited".to_string());
+                debug!("unsubscribe_task exited");
                 match c {
                     Ok(_) => {
-                        Logger::log_debug_string(&"unsubscribe_task exited".to_string());
+                        debug!("unsubscribe_task exited");
                     },
                     Err(e) => {
-                        Logger::log_debug_string(&format!("unsubscription_task failed: {}, exiting", &e.to_string()));
+                        debug!("unsubscription_task failed: {}, exiting", e);
                     }
                 }
             }
         }
-        Logger::log_info_string(&"when one task exits for whatever reason (probably an error), all are killed and the program exits".to_string())
+        info!("when one task exits for whatever reason (probably an error), all are killed and the program exits")
     }
 }

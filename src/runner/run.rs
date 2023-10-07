@@ -1,8 +1,10 @@
 use std::{path::PathBuf, time::Duration, fs};
+use log::{debug, error};
 use async_process::{Command, Output};
 use futures::future::try_join_all;
+use log::info;
 use tokio::{sync::broadcast::Sender, task::JoinHandle};
-use crate::{logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging}, errors::watcher_errors::{spawn_error::SpawnError, subscriber_error::SubscriptionError, thread_error::UnexpectedAnyhowError}};
+use crate::errors::watcher_errors::{spawn_error::SpawnError, subscriber_error::SubscriptionError, thread_error::UnexpectedAnyhowError};
 use crate::scripts::structs::Script;
 use crate::errors::watcher_errors::thread_error::ThreadError;
 use crate::errors::script_errors::script_error::ScriptError;
@@ -27,7 +29,7 @@ impl Runner {
         loop {
             let (path, scripts) = spawn_listener.recv().await.map_err(ThreadError::RecvError)?;
             let path_string = path.to_str().unwrap_or("unable to pull string out of path buf");
-            Logger::log_debug_string(&format!("new path to spawn scripts for: {}", path_string));
+            debug!("new path to spawn scripts for: {}", path_string);
             let unsubscribe_clone = self.unsubscribe_broadcast_channel.0.clone();
 
             let scripts_task:JoinHandle<Result<(), SpawnError>> = self.runtime.spawn(async move {
@@ -39,13 +41,14 @@ impl Runner {
                     match script.status.success() {
                         true => {
                             let stdout_str = format!("standard output from script: {}", String::from_utf8(script.stdout.clone()).unwrap_or("".to_string()));
-                            Logger::log_info_string(&format!("script execution successful"));
-                            Logger::log_debug_string(&stdout_str);
+                            info!("script execution successful");
+                            script.stdout.iter().for_each(|l|info!("{}", l));
+                            debug!("{}", stdout_str);
                         },
                         false => {
                             let stderr_str = String::from_utf8(script.stderr.clone()).unwrap_or("".to_string());
-                            Logger::log_error_string(&format!("error with a script"));
-                            Logger::log_error_string(&stderr_str);
+                            error!("error with a script");
+                            error!("{}", stderr_str);
                         }
                     }
                 }
@@ -68,8 +71,8 @@ impl Runner {
             },
             Err(e) => {
                 let message = format!("error while attempting to unsubscribe from path, retrying...");
-                Logger::log_error_string(&e.to_string());
-                Logger::log_error_string(&message);
+                error!("{}", e.to_string());
+                error!("{}", message);
                 return Self::rec_unsubscribe(unsub_channel, path, num_retries - 1)
             }
         }
@@ -79,11 +82,11 @@ impl Runner {
         tokio::time::sleep(Duration::from_secs(run_delay.clone().into())).await;
         let script_path_string = script_path.to_str().ok_or(SpawnError::ArgError("failed to parse script path".to_string()))?;
         let target_path_string = target_path.to_str().ok_or(SpawnError::ArgError("failed to parse target path".to_string()))?;
-        Logger::log_debug_string(&format!("script path is at: {}", script_path_string));
-        Logger::log_debug_string(&format!("directory path is at: {}", target_path_string));
+        debug!("script path is at: {}", script_path_string);
+        debug!("directory path is at: {}", target_path_string);
         match fs::try_exists(target_path) {
             Ok(_) => {
-                Logger::log_debug_string(&"target path exists, attempting to run".to_string());
+                debug!("target path exists, attempting to run");
             },
             Err(e) => {
                 return Err(ScriptError::IoError(e.into()))

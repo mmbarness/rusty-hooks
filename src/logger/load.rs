@@ -20,8 +20,6 @@ use log4rs::{
     encode::pattern::PatternEncoder,
     filter::threshold::ThresholdFilter,
 };
-
-use crate::logger::info::InfoLogging;
 use super::structs::{Logger, LoggerError};
 
 impl Logger {
@@ -36,12 +34,8 @@ impl Logger {
     }
 
     fn linux_log_path() -> Option<PathBuf> {
-        let home_dir = BaseDirs::new().and_then(|p| Some(p.home_dir().to_path_buf()))?.canonicalize().ok()?;
-        let rusty_hooks_log_subdir = Path::new("rusty-hooks/logs/rusty-hooks.log").to_path_buf();
-        Some([
-            home_dir.as_path(),
-            rusty_hooks_log_subdir.as_path()
-        ].iter().collect())
+        let log_path = Path::new("/var/log/rusty-hooks.log").to_path_buf();
+        Some(log_path)
     }
 
     fn mac_log_path() -> Option<PathBuf> {
@@ -60,11 +54,8 @@ impl Logger {
         let stderr_appender = Appender::builder()
             .filter(Box::new(ThresholdFilter::new(level)))
             .build("stderr", Box::new(stderr));
-
         match file_path {
             Some(path) => {
-                let path_clone = path.clone();
-                let file_path_str = path_clone.to_str().unwrap_or("whatever");
                 let window_size = 3; // log0, log1, log2
                 let fixed_window_roller = FixedWindowRoller::builder().build("log{}",window_size).unwrap();
 
@@ -74,7 +65,7 @@ impl Logger {
                 let compound_policy = CompoundPolicy::new(Box::new(size_trigger),Box::new(fixed_window_roller));
 
                 let rolling_file = RollingFileAppender::builder()
-                    .encoder(Box::new(PatternEncoder::new("{d} {l}::{m}{n}")))
+                    .encoder(Box::new(PatternEncoder::new("ts={d} level={l} message=\"{m}\" src={f} pid={P} {n}")))
                     .build(path, Box::new(compound_policy))?;
 
                 // Log Trace level output to file where trace is the default level
@@ -90,8 +81,6 @@ impl Logger {
                     )
                     .unwrap();
 
-                Self::log_info_string(&format!("writing logs to {}", file_path_str));
-
                 Ok(log4rs::init_config(config)?)
             },
             None => {
@@ -104,7 +93,6 @@ impl Logger {
                             .build(LevelFilter::Trace),
                     )
                     .unwrap();
-
                 Ok(log4rs::init_config(config)?)
             }
         }

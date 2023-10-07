@@ -12,7 +12,8 @@ use std::path::{PathBuf, Path};
 use clap::Parser;
 use errors::watcher_errors::watcher_error::WatcherError;
 use futures::future::try_join_all;
-use logger::{structs::Logger, error::ErrorLogging, info::InfoLogging, debug::DebugLogging};
+use log::{debug, info, error};
+use logger::structs::Logger;
 use runner::structs::Runner;
 use scripts::structs::Scripts;
 use watcher::structs::Watcher;
@@ -24,19 +25,19 @@ use crate::utilities::set_process_lockfile::Lockfile;
 async fn main() {
     let args = CommandLineArgs::parse();
     Logger::on_load(args.log_level).unwrap();
-
+    info!("starting rusty hooks....");
     let config_path = match args.get_config_path() {
         Ok(c) => c,
         Err(e) => {
-            Logger::log_debug_string(&e.to_string());
+            debug!("{}", e.to_string());
             panic!()
         }
     };
     let config_path_clone = config_path.as_path();
 
     if let Err(e) = Lockfile::set(None, None) {
-        Logger::log_debug_string(&e.to_string());
-        Logger::log_error_string(&format!("unable to get a lock on the pid file. this is done to ensure only one instance is running at a time").to_string());
+        debug!("{}", e.to_string());
+        error!("unable to get a lock on the pid file. this is done to ensure only one instance is running at a time");
         panic!()
     };
 
@@ -49,7 +50,7 @@ async fn main() {
     let watch_paths = match Scripts::watch_paths(&config_path) {
         Ok(p) => p,
         Err(e) => {
-            Logger::log_error_string(&e.to_string());
+            error!("{}", e.to_string());
             panic!()
         }
     };
@@ -64,22 +65,22 @@ async fn main() {
         a = runner_task => {
             match a {
                 Ok(_) => {
-                    Logger::log_info_string(&format!("runner task exited, cleaning up other tasks and exiting").to_string())
+                    info!("runner task exited, cleaning up other tasks and exiting")
                 },
                 Err(e) => {
-                    Logger::log_error_string(&format!("runner task failed: {}", e).to_string());
-                    Logger::log_info_string(&format!("cleaning up other tasks and exiting"));
+                    error!("runner task failed: {}", e);
+                    info!("cleaning up other tasks and exiting");
                 }
             }
         },
         b = awaited_watchers => {
             match b {
                 Ok(_) => {
-                    Logger::log_info_string(&format!("event watcher tasks exited, cleaning up other tasks and exiting").to_string())
+                    info!("event watcher tasks exited, cleaning up other tasks and exiting")
                 },
                 Err(e) => {
-                    Logger::log_error_string(&format!("event watchers failed: {}", e).to_string());
-                    Logger::log_info_string(&format!("cleaning up other tasks and exiting"));
+                    error!("event watchers failed: {}", e);
+                    info!("cleaning up other tasks and exiting");
                 }
             }
         }
@@ -90,7 +91,7 @@ async fn initialize_watchers(watch_path:&PathBuf, scripts_config_path: &Path, sp
     let watcher_scripts = match Scripts::load(watch_path, scripts_config_path) {
         Ok(script_records) => script_records,
         Err(e) => {
-            Logger::log_error_string(&format!("error loading configs: {}", e.to_string()));
+            error!("error loading configs: {}", e);
             panic!()
         }
     };

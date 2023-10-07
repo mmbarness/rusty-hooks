@@ -1,7 +1,8 @@
-use std::{path::{Path, PathBuf}, fs::File, io::Write};
+use crate::errors::watcher_errors::path_error::PathError;
 use directories::BaseDirs;
 use fs2::FileExt;
-use crate::{errors::watcher_errors::path_error::PathError, logger::{structs::Logger, debug::DebugLogging}};
+use log::debug;
+use std::{path::{Path, PathBuf}, fs::File, io::Write};
 
 #[derive(Debug)]
 pub struct Lockfile{
@@ -24,7 +25,7 @@ impl Lockfile {
 
         let file_exists = preliminary_self.file_path_valid();
 
-        Logger::log_debug_string(&format!("default path to lockfile is: {}", default_path.to_str().unwrap()));
+        debug!("default path to lockfile is: {}", default_path.to_str().unwrap());
 
         match file_exists {
             true => {
@@ -105,8 +106,6 @@ impl Lockfile {
         let provided_path_is_dir = &self.path.is_dir();
 
         let intended_dir = &self.path.parent();
-
-        Logger::log_debug_string(intended_dir.unwrap().to_str().unwrap());
 
         return match (provided_path_is_dir, intended_dir) {
             (true, _) => {

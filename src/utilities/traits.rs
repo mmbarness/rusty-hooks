@@ -1,7 +1,7 @@
 use std::{collections::hash_map::DefaultHasher, hash::{Hash, Hasher}, path::{Path, PathBuf}, fs::DirEntry};
+use log::{debug, info, error};
 use tokio::runtime::Runtime;
 use crate::{utilities::{thread_types::Channel,timer::Timer}, errors::watcher_errors::path_error::PathError};
-use crate::logger::{debug::DebugLogging, structs::Logger, info::InfoLogging, error::ErrorLogging};
 use crate::errors::watcher_errors::thread_error::ThreadError;
 
 pub type DirEntries = Vec<Result<DirEntry, std::io::Error>>;
@@ -73,16 +73,16 @@ pub trait Utilities {
         let message = &format!("path: {}", path_string);
         match log_level {
             log::Level::Debug => {
-                Logger::log_debug_string(message);
+                debug!("{}", message);
             },
             log::Level::Info => {
-                Logger::log_info_string(message)
+                info!("{}", message)
             },
             log::Level::Error => {
-                Logger::log_error_string(message)
+                error!("{}", message)
             },
             _ => {
-                Logger::log_debug_string(message);
+                debug!("{}", message);
             }
         };
     }

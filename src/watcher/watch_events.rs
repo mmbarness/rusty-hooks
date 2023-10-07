@@ -1,8 +1,8 @@
+use log::{debug, error};
 use tokio::sync::TryLockError;
 use std::{path::PathBuf, collections::HashSet};
 use notify::{Event, event::ModifyKind, EventKind};
 use crate::utilities::traits::Utilities;
-use crate::logger::{structs::Logger,debug::DebugLogging, error::ErrorLogging};
 use crate::scripts::structs::Scripts;
 use super::structs::Watcher;
 use crate::utilities::thread_types::{EventsReceiver, SubscribeSender};
@@ -36,7 +36,7 @@ impl Watcher {
                 Ok(event_root) => event_root,
                 Err(_) => {
                     // TODO: cache errored paths to retry later?
-                    Logger::log_error_string(&format!(r#"error while looking for events root directory, i.e. the uppermost affected directory "prior" to the directory rusty-hooks is watching. skipping."#));
+                    error!(r#"error while looking for events root directory, i.e. the uppermost affected directory "prior" to the directory rusty-hooks is watching. skipping."#);
                     return acc
                 }
             };
@@ -52,16 +52,16 @@ impl Watcher {
         scripts: Scripts,
         subscribe_channel: SubscribeSender
     ) -> Result<(), TryLockError> {
-        Logger::log_debug_string(&"spawned event watching thread".to_string());
+        debug!("spawned event watching thread");
         while let Ok(res) = events_receiver.recv().await {
             match res {
                 Ok(event) => {
                     match Self::ignore(&event) {
                         true => {
-                            // Logger::log_debug_string(&format!("ignoring event of kind: {:?}", &event.kind));
+                            // debug!(&format!("ignoring event of kind: {:?}", &event.kind));
                         },
                         false => {
-                            Logger::log_debug_string(&format!("not ignoring event of kind: {:?}", &event.kind));
+                            debug!("not ignoring event of kind: {:?}", event.kind);
                             let unique_event_home_dirs = Self::get_unique_event_home_dirs(
                                 &event,
                                 root_dir.clone(),
@@ -69,11 +69,11 @@ impl Watcher {
                             for event_home_dir in unique_event_home_dirs {
                                 match subscribe_channel.send((event_home_dir, scripts.get_by_event(&event.kind))) {
                                     Ok(_) => {
-                                        Logger::log_debug_string(&"successfuly sent new path to subscription thread".to_string());
-                                        // Logger::log_debug_string(&format!("num of sub receivers: {}", subscribe_channel.receiver_count()));
+                                        debug!("successfuly sent new path to subscription thread");
+                                        // debug!(&format!("num of sub receivers: {}", subscribe_channel.receiver_count()));
                                     },
                                     Err(e) => {
-                                        Logger::log_error_string(&format!("error while attempting to subscribe to new path: {}", e))
+                                        error!("error while attempting to subscribe to new path: {}", e)
                                     }
                                 }
                             }
