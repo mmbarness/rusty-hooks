@@ -6,9 +6,9 @@ use itertools::FoldWhile::{Continue, Done};
 use log::{debug, error};
 use notify::{EventKind, event::AccessKind};
 use crate::utilities::traits::Utilities;
-use crate::scripts::structs::ScriptJSON;
+use crate::scripts::structs::ScriptBlock;
 use crate::errors::script_errors::script_error::{ScriptConfigError, ScriptError};
-use super::structs::{Scripts, Script, ScriptsByEventTrigger};
+use super::structs::{Scripts, Script, ScriptsByEventTrigger, ScriptYAML};
 
 impl Scripts {
     pub fn get_by_event(&self, event_kind: &EventKind) -> Vec<Script> {
@@ -18,7 +18,7 @@ impl Scripts {
         }
     }
 
-    pub fn validate_scripts(watch_path: &PathBuf, unvalidated_scripts: Vec<ScriptJSON>, script_directory: &String) -> Result<Vec<Script>, ScriptConfigError> {
+    pub fn validate_scripts(watch_path: &PathBuf, unvalidated_scripts: Vec<ScriptBlock>, script_directory: &String) -> Result<Vec<Script>, ScriptConfigError> {
         let script_validations:Vec<Result<(bool, PathBuf), std::io::Error>> = unvalidated_scripts.iter().map(|script| {
             let script_path = Self::build_path(&vec![&script_directory, &script.file_name]);
             let io_error_kind = std::io::ErrorKind::InvalidFilename;
@@ -28,7 +28,9 @@ impl Scripts {
                     "unable to find script: {}, at path: {}", script.file_name, Self::format_unvalidated_path(&vec![&"./".to_string(), &script_directory, &script.file_name]).to_string()
                 )
             );
-            let watch_paths_match = watch_path.clone() == std::path::Path::new(&script.watch_path).to_path_buf();
+            let internal_watch_path = &script.watch_path;
+            let watch_paths_match = watch_path.clone() == std::path::Path::new(internal_watch_path).to_path_buf();
+
             match (script_path, watch_paths_match) {
                 (Some(path), true) => Ok((true, path)),
                 (None, true) => Err(script_path_io_error),
@@ -70,14 +72,14 @@ impl Scripts {
         }
     }
 
-    pub fn watch_paths(config_path: &Path) -> Result<Vec<PathBuf>, ScriptError> {
+    pub fn all_watch_paths(config_path: &Path) -> Result<Vec<PathBuf>, ScriptError> {
         let configs_file = fs::read_to_string(config_path).map_err(ScriptError::IoError)?;
 
-        let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(ScriptConfigError::JsonError)?;
+        let scripts_yaml_configurations: ScriptYAML = serde_yaml::from_str::<ScriptYAML>(&configs_file).map_err(ScriptConfigError::YAMLError)?;
 
         let mut bad_path: Option<PathBuf> = None;
 
-        let watch_paths = files.iter().fold_while(vec![], |mut acc: Vec<PathBuf>, script:&ScriptJSON| {
+        let watch_paths: Vec<PathBuf> = scripts_yaml_configurations.scripts.iter().fold_while(vec![], |mut acc: Vec<PathBuf>, script:&ScriptBlock| {
             let path = Path::new(&script.watch_path);
             let can_read = path.read_dir();
 
@@ -117,7 +119,7 @@ impl Scripts {
         }
     }
 
-    pub fn load(watch_path: &PathBuf, scripts_config_path: &Path) -> Result<Self, ScriptError> {
+    pub fn by_watch_path(watch_path: &PathBuf, scripts_config_path: &Path) -> Result<Self, ScriptError> {
         let config_path_buf = scripts_config_path.to_path_buf();
         let script_config_path_str = scripts_config_path.to_str().unwrap_or("");
 
@@ -125,11 +127,9 @@ impl Scripts {
             .ok_or(ScriptError::ConfigError("unable to parse parent directory of provided script configuration path".to_string().into()))?;
         let script_directory_path_string = script_directory_path.to_str().ok_or(ScriptError::ConfigError("unable to parse parent directory of provided script configuration path".to_string().into()))?.to_string();
 
-        let configs_file = fs::read_to_string(script_config_path_str).map_err(ScriptError::IoError)?;
-
-        let files = serde_json::from_str::<Vec<ScriptJSON>>(&configs_file).map_err(ScriptConfigError::JsonError)?;
-
-        let validated_scripts = Self::validate_scripts(watch_path, files, &script_directory_path_string)?;
+        let script_configs_str = fs::read_to_string(script_config_path_str).map_err(ScriptError::IoError)?;
+        let unvalidated_scripts:ScriptYAML = serde_yaml::from_str(&script_configs_str).map_err(ScriptConfigError::YAMLError)?;
+        let validated_scripts = Self::validate_scripts(watch_path, unvalidated_scripts.scripts, &script_directory_path_string)?;
 
         let watch_paths:Vec<PathBuf> = validated_scripts.iter().map(|s| {
             s.watch_path.clone()
@@ -175,26 +175,26 @@ impl Scripts {
         })
     }
 
-    fn update_schema_vec(event_type: &EventKind, script_json: Script, scripts: &mut HashMap<EventKind, Vec<Script>>) -> Vec<Script> {
-        debug!("deciding whether to insert script {:?}", serde_json::to_string_pretty(&script_json.file_name).unwrap_or("unable to parse script file name".to_string()));
+    fn update_schema_vec(event_type: &EventKind, script: Script, scripts: &mut HashMap<EventKind, Vec<Script>>) -> Vec<Script> {
+        debug!("deciding whether to insert script {:?}", serde_yaml::to_string(&script.file_name).unwrap_or("unable to parse script file name".to_string()));
         match scripts.get_mut(event_type) {
             Some(acc_event_type_scripts) => { // array of scripts attached to event_type
                 let script_exists = acc_event_type_scripts.into_iter().any(|script| {
-                    script_json.file_name.eq_ignore_ascii_case(&script.file_name)
+                    script.file_name.eq_ignore_ascii_case(&script.file_name)
                 });
                 match script_exists {
                     true => {
                         acc_event_type_scripts.to_vec()
                     }
                     false => {
-                        acc_event_type_scripts.push(script_json.into());
+                        acc_event_type_scripts.push(script.into());
                         acc_event_type_scripts.to_vec()
                     }
                 }
             },
             None => {
-                let event_type_and_schema_to_insert = vec![script_json.clone()];
-                scripts.insert(event_type.clone(), vec![script_json.clone()]);
+                let event_type_and_schema_to_insert = vec![script.clone()];
+                scripts.insert(event_type.clone(), vec![script.clone()]);
                 event_type_and_schema_to_insert
             }
         }

@@ -93,6 +93,7 @@ impl Runner {
             }
         }
         let canonicalized_target_path = target_path.canonicalize()?;
+
         Ok(Command::new(script_path)
             .arg(canonicalized_target_path.as_os_str())
             .output()

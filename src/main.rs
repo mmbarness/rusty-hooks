@@ -47,7 +47,7 @@ async fn main() {
 
     let runner_task = runner.init();
 
-    let watch_paths = match Scripts::watch_paths(&config_path) {
+    let watch_paths = match Scripts::all_watch_paths(&config_path) {
         Ok(p) => p,
         Err(e) => {
             error!("{}", e.to_string());
@@ -88,8 +88,8 @@ async fn main() {
 }
 
 async fn initialize_watchers(watch_path:&PathBuf, scripts_config_path: &Path, spawn_channel: SpawnSender, unsubscribe_channel: UnsubscribeSender) -> Result<(), WatcherError>{
-    let watcher_scripts = match Scripts::load(watch_path, scripts_config_path) {
-        Ok(script_records) => script_records,
+    let watcher_scripts = match Scripts::by_watch_path(watch_path, scripts_config_path) {
+        Ok(s) => s,
         Err(e) => {
             error!("error loading configs: {}", e);
             panic!()

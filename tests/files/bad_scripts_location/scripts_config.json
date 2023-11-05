@@ -1,0 +1,9 @@
+[
+    {
+        "enabled": true,
+        "event_triggers": ["Modify"],
+        "file_name": "test_script.sh",
+        "watch_path": "/media/wd3/programming/rusty-hooks/tests/files/nonexistent_watch_location",
+        "run_delay": 10
+    }
+]

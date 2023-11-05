@@ -16,7 +16,29 @@ fn with_valid_script_folder() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut process = spawn_command(cmd, Some(30000))?;
 
-    process.exp_regex(common::stdout_strs::LOGGING_REGEX);
+    process.exp_regex(common::stdout_strs::LOGGING_REGEX).expect("unable to match stdout with regex");
+    process.exp_regex(common::stdout_strs::WATCH_PATH_REGEX)?;
+
+    process.send_control('c')?;
+
+    Ok(())
+}
+
+#[test]
+fn with_invalid_script_folder() -> Result<(), Box<dyn std::error::Error>> {
+    let _ = TempDir::new("rusty_hooks_tests");
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")?;
+    let scripts_arg = format!("{}/tests/files/scripts", manifest_dir);
+    let rusty_hooks_bin_path = assert_cmd::cargo::cargo_bin("rusty-hooks");
+    let mut cmd = std::process::Command::new(rusty_hooks_bin_path);
+    cmd
+        .arg("--script-folder")
+        .arg(scripts_arg);
+
+    let mut process = spawn_command(cmd, Some(30000))?;
+
+    // process.exp_regex(stdout_strs::LOGGING_REGEX)?;
+    // process.exp_regex(stdout_strs::WATCH_PATH_REGEX)?;
 
     process.send_control('c')?;
 

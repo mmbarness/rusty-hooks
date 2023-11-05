@@ -26,8 +26,8 @@ impl CommandLineArgs {
         debug!("config path: {}", config_path_str);
         let config_dir = config_path.canonicalize()?.read_dir()?;
         let config_dir_files = config_dir.collect_vec();
-        if !Self::dir_contains_file_type(&config_dir_files, &"json".to_string()) { return Err(possible_config_error) }
-        let config_file = Self::get_first_of_file_type(&config_dir_files, &"json".to_string())
+        if !Self::dir_contains_file_type(&config_dir_files, &"yml".to_string()) { return Err(possible_config_error) }
+        let config_file = Self::get_first_of_file_type(&config_dir_files, &"yml".to_string())
             .ok_or(possible_config_error)?;
         Ok(config_file)
     }

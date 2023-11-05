@@ -1,0 +1,79 @@
+{
+    "id": "scripts.schema.json",
+    "type": "object",
+    "title": "Scripts Specification",
+    "description": "The Scripts file is a YAML file defining how rusty hooks should run your scripts.",
+    "properties": {
+        "scripts": {
+            "id": "#/properties/scripts",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "$ref": "#/definitions/scripts"
+            },
+            "additionalProperties": false
+        }
+    },
+    "definitions": {
+        "scripts": {
+            "id": "#/definitions/scripts",
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Script name. Distinct from script file name"
+                },
+                "script": {
+                    "type": "string",
+                    "description": "Inline bash script to run. If this is specified, file_name will be ignored."
+                },
+                "dependencies": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "List of scripts that must complete successfully before running this script."
+                  },
+                "file_name": {
+                    "id": "#/properties/file_name",
+                    "type": "string",
+                    "description": "Relative path to script file. Assumes the scripts and config json are all located within the one folder passed as an argument on startup."
+                },
+                "watch_path": {
+                    "id": "#/properties/watch_path",
+                    "type": "string",
+                    "description": "Absolute path to directory to watch for changes."
+                },
+                "enabled": {
+                    "id": "#/properties/enabled",
+                    "type": "boolean",
+                    "description": "Whether or not to run this script."
+                },
+                "event_triggers": {
+                    "id": "#/properties/event_triggers",
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "Create",
+                            "Modify",
+                            "Delete"
+                        ]
+                    },
+                    "description": "List of events that will trigger the script to run. Optional, defaults to all events."
+                },
+                "run_delay": {
+                    "id": "#/properties/run_delay",
+                    "type": "integer",
+                    "description": "Time (in seconds) to wait after a change is detected before running the script. Optional, defaults to 0."
+                }
+            },
+            "required": [
+                "name",
+                "dependencies",
+                "watch_path",
+                "enabled"
+            ]
+        }
+    }
+}

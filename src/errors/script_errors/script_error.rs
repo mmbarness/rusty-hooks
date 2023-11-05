@@ -18,6 +18,8 @@ pub enum ScriptConfigError {
     IoError(#[from] std::io::Error),
     #[error("error parsing user script_config.json: `{0}`")]
     JsonError(#[from] serde_json::Error),
+    #[error("error parsing scripts.yml: `{0}`")]
+    YAMLError(#[from] serde_yaml::Error),
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
 }

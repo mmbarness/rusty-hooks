@@ -44,12 +44,8 @@ impl Lockfile {
 
     fn default_lockfile_path() -> Option<PathBuf> {
         let home_dir = BaseDirs::new().and_then(|p| Some(p.home_dir().to_path_buf()))?.canonicalize().ok()?;
-        let rusty_hooks_subdir = Path::new("rusty-hooks/rusty-hooks.pid").to_path_buf();
-        let full_path = [
-            home_dir.as_path(),
-            rusty_hooks_subdir.as_path()
-        ].iter().collect();
-        Some(full_path)
+        let rusty_hooks_subdir = Path::new("/home/mmbarnes/rusty-hooks/rusty-hooks.pid").to_path_buf();
+        Some(rusty_hooks_subdir)
     }
 
     fn lock_and_update_existing(&mut self) -> Result<(), std::io::Error> {

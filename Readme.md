@@ -36,8 +36,8 @@ user@machine:~/dir/rusty-hooks$ target/release/rusty-hooks --script-config ./scr
 [2023-03-31T13:17:09Z INFO  rusty_hooks::logger::structs] log level set to info
 [2023-03-31T13:17:09Z INFO  rusty_hooks::logger::structs] log level set to debug
 [2023-03-31T13:17:09Z INFO  rusty_hooks::logger::structs] log level set to error
-[2023-03-31T13:17:09Z DEBUG rusty_hooks::logger::debug] path: ./user_scripts/ingest_music.sh
-[2023-03-31T13:17:09Z DEBUG rusty_hooks::logger::debug] path: ./user_scripts/ingest_movies.sh
+[2023-03-31T13:17:09Z DEBUG rusty_hooks::logger::debug] path: ./scripts/ingest_music.sh
+[2023-03-31T13:17:09Z DEBUG rusty_hooks::logger::debug] path: ./scripts/ingest_movies.sh
 [2023-03-31T13:17:09Z DEBUG rusty_hooks::logger::debug] 1 scripts found that match provided watch path
 [2023-03-31T13:17:09Z DEBUG rusty_hooks::scripts::load] deciding whether to insert script Ok("\"ingest_music.sh\"")
 [2023-03-31T13:17:09Z DEBUG rusty_hooks::logger::debug] spawned subscribe thread
