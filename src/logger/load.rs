@@ -49,8 +49,13 @@ impl Logger {
 
     pub fn on_load(level: LevelFilter) -> Result<log4rs::Handle, LoggerError> {
         let file_path = Self::log_path_if_linux_or_mac();
+        let encoder= Box::new(PatternEncoder::new("ts={d} level={l} message=\"{m}\" src={f} pid={P} {n}"));
         // Build a stderr logger.
-        let stderr = ConsoleAppender::builder().target(Target::Stderr).build();
+        let stderr = ConsoleAppender::builder()
+            .encoder(encoder.clone())
+            .target(Target::Stderr)
+            .build();
+
         let stderr_appender = Appender::builder()
             .filter(Box::new(ThresholdFilter::new(level)))
             .build("stderr", Box::new(stderr));
@@ -65,7 +70,7 @@ impl Logger {
                 let compound_policy = CompoundPolicy::new(Box::new(size_trigger),Box::new(fixed_window_roller));
 
                 let rolling_file = RollingFileAppender::builder()
-                    .encoder(Box::new(PatternEncoder::new("ts={d} level={l} message=\"{m}\" src={f} pid={P} {n}")))
+                    .encoder(encoder)
                     .build(path, Box::new(compound_policy))?;
 
                 // Log Trace level output to file where trace is the default level
