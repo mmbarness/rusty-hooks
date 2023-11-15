@@ -8,7 +8,7 @@ I found myself needing a way to continually execute arbitrary bash scripts based
 
 ### Installation
 
-Binaries are available for each release, in the releases section of this repo. Docker images also exist - see [Docker](#docker) below.
+Binaries are available for each release, in the releases section of this repo.
 
 ### How to run it
 
