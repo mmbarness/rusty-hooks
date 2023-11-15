@@ -44,30 +44,5 @@ user@machine:~/dir/rusty-hooks$ target/release/rusty-hooks --script-config ./scr
 [2023-03-31T13:17:09Z DEBUG rusty_hooks::logger::debug] spawned event watching thread
 [2023-03-31T13:17:09Z DEBUG rusty_hooks::logger::debug] spawned unsubscribe thread
 ```
-
-#### Docker
-Images for each new release are exported with both "latest" tags and tagged to their specific semver release. Running them is a little more complicated than your standard web server or whatever, given the purpose of this application depends on having visibility into your local machine. So, to do this, the script folder being used needs to be bind-mounted to the docker container the image runs on - a complete example how this might work within a bash script is below.
-```
-#!/bin/bash
-docker run \
-    -d \
-    -e SCRIPT_FOLDER=/scripts \
-    --mount type=bind,src=<local/machine/scripts/path>,destination=/scripts \
-    --mount type=bind,src=<local/machine/music/path>,destination=/music \
-    --mount type=bind,src=<local/machine/movies/path>,destination=/movies \
-    mmbarness/rusty-hooks:latest
-```
-Your scripts folder configurations would need to be adjusted to be the correct path *within* the docker container. According to the above `run` command, that would be at root, e.g.:
-```
-    {
-        "enabled": true,
-        "event_triggers": ["Modify"],
-        "file_name": "ingest_music.sh",
-        "watch_path": "/music",
-        "run_delay": 10
-    },
-```
-Because I don't run this on anything except for Ubuntu, there might be issues running on other platforms. Not sure. Running this on Docker would offer a way around whatever might surface.
-
 ### Logging
 If you're running this on Linux, logs will be written to home/*ur_username*/rusty-hooks/logs/rusty-hooks.log. On mac, they write to ~/Library/rusty-hooks/logs/.
