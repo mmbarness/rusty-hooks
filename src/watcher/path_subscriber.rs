@@ -98,7 +98,7 @@ impl PathSubscriber {
 
         let handle = Handle::current();
         let timer_thread = handle.spawn(async move {
-            println!("now running in the existing Runtime");
+            println!("now using existing Runtime to wait out script timer");
             new_timer.wait().await
         });
         let events_thread = Self::event_loop(
@@ -131,7 +131,7 @@ impl PathSubscriber {
 
     pub async fn route_subscriptions(
         self: &Self,
-        events_listener: BroadcastSender<EventMessage>,
+        events_emitter: BroadcastSender<EventMessage>,
         spawn_channel: BroadcastSender<SpawnMessage>,
         subscribe_channel: BroadcastSender<(PathBuf, Vec<Script>)>,
         paths: PathsCacheArc
@@ -179,7 +179,7 @@ impl PathSubscriber {
                 let spawn_channel = spawn_channel.clone();
                 // TODO: create channel for a timer and event thread to communicate, and spawn both on wait threads so that start_waiting need not spawn its own
                 let _:JoinHandle<Result<(), SubscriptionError>> = Self::spawn_new_wait_thread(
-                    events_listener.subscribe(),
+                    events_emitter.subscribe(),
                     path,
                     &self.wait_threads,
                     scripts,

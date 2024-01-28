@@ -1,0 +1,50 @@
+refresh_rate: 30 seconds
+
+appenders:
+  stdout:
+    encoder:
+      pattern: "level={({l}):5.5} | message=\"{m}\" | src=\"{f}:{L}\" \n"
+    kind: console
+
+  default:
+    kind: rolling_file
+    path: /var/log/rusty-hooks.log
+    encoder:
+      kind: json
+    policy:
+      trigger:
+        kind: size
+        limit: 100 mb
+      roller:
+        kind: fixed_window
+        pattern: /var/log/rusty-hooks_{}.gz
+        count: 5
+        base: 1
+
+  script_output:
+    kind: rolling_file
+    path: /var/log/rusty-hooks-script-output.log
+    encoder:
+      kind: json
+    policy:
+      trigger:
+        kind: size
+        limit: 100 mb
+      roller:
+        kind: fixed_window
+        pattern: /var/log/rusty-hooks-script-output_{}.gz
+        count: 5
+        base: 1
+
+root:
+  level: debug
+  appenders:
+    - stdout
+    - default
+
+loggers:
+  script_output:
+    level: debug
+    appenders:
+      - script_output
+    additive: false

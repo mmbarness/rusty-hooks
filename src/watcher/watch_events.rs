@@ -1,27 +1,88 @@
+use itertools::Itertools;
 use log::{debug, error};
-use tokio::sync::TryLockError;
+use tokio::sync::broadcast::error::{RecvError, SendError};
+use std::sync::Arc;
 use std::{path::PathBuf, collections::HashSet};
 use notify::{Event, event::ModifyKind, EventKind};
-use crate::utilities::traits::Utilities;
+use crate::{scripts::structs::Script, utilities::traits::Utilities};
 use crate::scripts::structs::Scripts;
 use super::structs::Watcher;
 use crate::utilities::thread_types::{EventsReceiver, SubscribeSender};
 
 impl Watcher {
-    pub fn ignore(event: &notify::Event) -> bool {
-        match &event.kind {
-            EventKind::Modify(e) => {
-                match e {
-                    // type of event that takes place when the file finishes and its .tmp extension is removed
-                    ModifyKind::Name(notify::event::RenameMode::To) => false,
-                    _ => true,
+
+    /// Awaits events emitted by notify. See [`notify::event`].
+    pub async fn watch_events(
+        mut events_receiver: EventsReceiver,
+        root_dir: PathBuf,
+        scripts: Scripts,
+        subscribe_channel: SubscribeSender
+    ) -> Result<(), RecvError> {
+        debug!("spawned event watching thread");
+        loop {
+            match events_receiver.recv().await {
+                Ok(res) => {
+                    Self::evaluate_event(res, &root_dir, &subscribe_channel, &scripts);
+                }
+                Err(e) => {
+                    error!("Error encountered while a receiving a new event: {:?}", e);
+                }
+            };
+        };
+    }
+
+    fn evaluate_event(
+        res: Result<Event, Arc<notify::Error>>,
+        root_dir: &PathBuf,
+        subscribe_channel: &SubscribeSender,
+        scripts: &Scripts
+    ) {
+        match res {
+            Ok(event) => {
+                let subscription_errors = Self::decide_to_subscribe(
+                    &event,
+                    &root_dir,
+                    &subscribe_channel,
+                    &scripts
+                );
+                for error in &subscription_errors {
+                    error!("{:?}", error)
                 }
             },
-            _ => true,
+            Err(e) => {
+                error!("notify error: {:?}", e);
+            },
         }
     }
 
-    // accepts events of kind Modify, finds *their* root dirs, i.e. the uppermost affected directory relative to the root watched path, and sends those to the subscribe runtime
+    fn decide_to_subscribe(
+        event: &Event,
+        root_dir: &PathBuf,
+        subscribe_channel: &SubscribeSender,
+        scripts: &Scripts
+    ) -> Vec<tokio::sync::broadcast::error::SendError<(PathBuf, Vec<Script>)>> {
+        match Self::ignore(&event) {
+            true => vec![],
+            false => {
+                let unique_event_home_dirs = Self::get_unique_event_home_dirs(
+                    &event,
+                    root_dir.clone(),
+                );
+                unique_event_home_dirs.iter().map(|event_home_dir| {
+                    Self::send_new_event(
+                        &event,
+                        event_home_dir,
+                        &scripts,
+                        &subscribe_channel,
+                    )
+                }).filter_map(|f| f.err()).collect_vec()
+            }
+        }
+    }
+
+    /// Accepts events of kind Modify, finds *their* root dirs, i.e. the uppermost affected directory relative to the root watched path, and sends those to the subscribe runtime.
+    /// Example: If a watch path derived from the user-provided scripts.yml is /home/user/script_1_watch_path, and the incoming event occurred
+    /// at /home/user/script_1/very/very/very/nested, /home/user/script_1/very will be returned.
     fn get_unique_event_home_dirs(
         event: &Event,
         root_dir: PathBuf,
@@ -43,47 +104,31 @@ impl Watcher {
             acc.insert(events_root_dir.clone()); // returns true  or false based on whether or not it already existed, but we dont care
             acc
         })
-
     }
 
-    pub async fn watch_events(
-        mut events_receiver: EventsReceiver,
-        root_dir: PathBuf,
-        scripts: Scripts,
-        subscribe_channel: SubscribeSender
-    ) -> Result<(), TryLockError> {
-        debug!("spawned event watching thread");
-        while let Ok(res) = events_receiver.recv().await {
-            match res {
-                Ok(event) => {
-                    match Self::ignore(&event) {
-                        true => {
-                            // debug!(&format!("ignoring event of kind: {:?}", &event.kind));
-                        },
-                        false => {
-                            debug!("not ignoring event of kind: {:?}", event.kind);
-                            let unique_event_home_dirs = Self::get_unique_event_home_dirs(
-                                &event,
-                                root_dir.clone(),
-                            );
-                            for event_home_dir in unique_event_home_dirs {
-                                match subscribe_channel.send((event_home_dir, scripts.get_by_event(&event.kind))) {
-                                    Ok(_) => {
-                                        debug!("successfuly sent new path to subscription thread");
-                                        // debug!(&format!("num of sub receivers: {}", subscribe_channel.receiver_count()));
-                                    },
-                                    Err(e) => {
-                                        error!("error while attempting to subscribe to new path: {}", e)
-                                    }
-                                }
-                            }
-                        }
-                    };
-                },
-                Err(e) => println!("watch error: {:?}", e),
-            }
+    /// Sends a new event to the PathSubscriber runtime, along with its related scripts (based on the directory in question)
+    fn send_new_event(
+        event: &Event,
+        event_dir: &PathBuf,
+        scripts: &Scripts,
+        subscribe_channel: &SubscribeSender,
+    ) -> Result<(), SendError<(PathBuf, Vec<Script>)>> {
+        match subscribe_channel.send((event_dir.clone(), scripts.get_by_event(&event.kind))) {
+            Ok(_) => { Ok(()) },
+            Err(e) => Err(e)
         }
-        Ok(())
     }
 
+    fn ignore(event: &notify::Event) -> bool {
+        match &event.kind {
+            EventKind::Modify(e) => {
+                match e {
+                    // type of event that takes place when the file finishes and its .tmp extension is removed
+                    ModifyKind::Name(notify::event::RenameMode::To) => false,
+                    _ => true,
+                }
+            },
+            _ => true,
+        }
+    }
 }

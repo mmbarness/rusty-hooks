@@ -1,8 +1,8 @@
 {
     "id": "scripts.schema.json",
     "type": "object",
-    "title": "Scripts Specification",
-    "description": "The Scripts file is a YAML file defining how rusty hooks should run your scripts.",
+    "title": "Scripts Specifications",
+    "description": "Defines how rusty hooks should run your scripts.",
     "properties": {
         "scripts": {
             "id": "#/properties/scripts",
