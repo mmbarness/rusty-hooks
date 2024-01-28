@@ -12,15 +12,34 @@ Binaries are available for each release, in the releases section of this repo.
 
 ### How to run it
 
-The application requires a folder of scripts with a configuration file. That file should have an array structure of objects that look like this:
-```
-    {
-        "enabled": true/false
-        "event_triggers": ["EventKinds"],
-        "file_name": "whatever.sh",
-        "watch_path": "path/that/should/be/watched",
-        "run_delay": u8, in case you want to bake an extra delay from the last event to the script execution
-    },
+The application requires a folder of scripts with a configuration yaml file. A schema is at root to provide guidance, but here's an example: 
+```yaml
+# yaml-language-server: $schema=../scripts.schema.json
+scripts:
+- name: "music"
+  description: "run filebot against music download folder"
+  watch_path: /path/to/music_download_location
+  file_name: ingest_music.sh
+  enabled: true
+  run_delay: 0
+  event_triggers: ["Modify"]
+  dependencies: []
+- name: "movies"
+  description: "run filebot against movies download folder"
+  file_name: ingest_movies.sh
+  watch_path: /path/to/movie_download_location
+  enabled: true
+  run_delay: 0
+  event_triggers: ["Modify"]
+  dependencies: []
+- name: "tv"
+  description: "run filebot against tv download folder"
+  file_name: ingest_tv.sh
+  watch_path: /path/to/tv_download_location
+  enabled: true
+  run_delay: 0
+  event_triggers: ["Modify"]
+  dependencies: []
 ```
 
 Every watch path provided in the json will be picked up by rusty-hooks, unless `enabled` is false, of course.
