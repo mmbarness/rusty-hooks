@@ -139,7 +139,8 @@ impl Scripts {
             watch_path.clone() == std::path::Path::new(&script.watch_path).to_path_buf()
         }).map(|s| s.to_owned()).collect();
 
-        debug!("{} scripts found that match provided watch path", filtered_by_watch_path.len());
+        let script_file_names = filtered_by_watch_path.iter().map(|f|f.file_name.clone()).collect_vec().join(", ");
+        debug!("{} scripts found that match provided watch path: {:?}", filtered_by_watch_path.len(), script_file_names);
 
         let scripts_by_event_triggers = Self::cache_scripts_by_events(&filtered_by_watch_path);
 

@@ -28,10 +28,10 @@ futures = "0.3.25"
 is_executable = "1.0.1"
 itertools = "0.10.5"
 log = "0.4.17"
-log4rs = { version = "1.2.0",features = [ "rolling_file_appender","compound_policy", "delete_roller", "fixed_window_roller", "file_appender"]}
+log4rs = { version = "1.2.0",features = [ "json_encoder", "rolling_file_appender","compound_policy", "delete_roller", "fixed_window_roller", "file_appender", "gzip" ]}
 log4rs-syslog = "3.0.3"
 merkle_hash = "3.2.0"
-notify = { version = "5.1.0", features  = ["serde"]}
+notify = { version = "5.1.0", default-features = false, features = ["macos_kqueue"]}
 opentelemetry = { version = "0.20.0", features = ["rt-tokio", "logs", "metrics", "trace"]}
 opentelemetry-otlp = "0.13.0"
 opentelemetry-stdout = "0.1.0"

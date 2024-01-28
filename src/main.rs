@@ -1,7 +1,6 @@
 #![feature(io_error_more)]
 #![feature(result_option_inspect)]
 #![feature(fs_try_exists)]
-mod logger;
 mod errors;
 mod watcher;
 mod runner;
@@ -13,7 +12,6 @@ use clap::Parser;
 use errors::watcher_errors::watcher_error::WatcherError;
 use futures::future::try_join_all;
 use log::{debug, info, error};
-use logger::structs::Logger;
 use runner::structs::Runner;
 use scripts::structs::Scripts;
 use watcher::structs::Watcher;
@@ -24,7 +22,7 @@ use crate::utilities::set_process_lockfile::Lockfile;
 #[tokio::main]
 async fn main() {
     let args = CommandLineArgs::parse();
-    Logger::on_load(args.log_level).unwrap();
+    log4rs::init_file("log4rs.yml", Default::default()).unwrap();
     info!("starting rusty hooks....");
     let config_path = match args.get_config_path() {
         Ok(c) => c,

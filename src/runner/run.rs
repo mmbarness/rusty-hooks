@@ -37,22 +37,7 @@ impl Runner {
                     Self::run(&script.file_path, &path, &script.run_delay)
                 }).collect();
                 let awaited_scripts = try_join_all(script_processes).await.map_err(|e| SpawnError::ScriptError(e.to_string()))?;
-                for script in awaited_scripts {
-                    match script.status.success() {
-                        true => {
-                            let stdout_str = format!("standard output from script: {}", String::from_utf8(script.stdout.clone()).unwrap_or("".to_string()));
-                            info!("script execution successful");
-                            script.stdout.iter().for_each(|l|info!("{}", l));
-                            debug!("{}", stdout_str);
-                        },
-                        false => {
-                            let stderr_str = String::from_utf8(script.stderr.clone()).unwrap_or("".to_string());
-                            error!("error with a script");
-                            error!("{}", stderr_str);
-                        }
-                    }
-                }
-                // will recursively attempt to unsubscribe more than once before erroring
+                Self::log_script_output(awaited_scripts);
                 Self::rec_unsubscribe(unsubscribe_clone, path,5)?;
                 Ok(())
             });
@@ -60,6 +45,7 @@ impl Runner {
         };
     }
 
+    /// Recursively attempts to unsubscribe as many times as indicated by num_retries
     fn rec_unsubscribe(unsub_channel: Sender<PathBuf>, path: PathBuf, num_retries: i8) -> Result<Option<usize>, SubscriptionError> {
         if num_retries <= 0  {
             return Err(SubscriptionError::new_unexpected_error(format!("unable to unsubscribe from path")))
@@ -70,9 +56,8 @@ impl Runner {
                 return Ok(None)
             },
             Err(e) => {
-                let message = format!("error while attempting to unsubscribe from path, retrying...");
-                error!("{}", e.to_string());
-                error!("{}", message);
+                error!("{:?}", e);
+                error!("error while attempting to unsubscribe from path, retrying...");
                 return Self::rec_unsubscribe(unsub_channel, path, num_retries - 1)
             }
         }
@@ -98,5 +83,23 @@ impl Runner {
             .arg(canonicalized_target_path.as_os_str())
             .output()
             .await?)
+    }
+
+    fn log_script_output(awaited_scripts: Vec<Output>) {
+        for script in awaited_scripts {
+            match script.status.success() {
+                true => {
+                    let stdout_str = String::from_utf8(script.stdout.clone()).unwrap_or("".to_string());
+                    stdout_str.split("\n").filter(|l|l != &"").for_each(|line| debug!(target: "script_output", "{:?}", line));
+                    // debug!(target: "script_output", "{:?}", stdout_str);
+                    info!("script execution successful");
+                },
+                false => {
+                    let stderr_str = String::from_utf8(script.stderr.clone()).unwrap_or("".to_string());
+                    error!("error with a script");
+                    error!(target: "script_output", "{}", stderr_str);
+                }
+            }
+        }
     }
 }
