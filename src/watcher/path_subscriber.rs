@@ -7,12 +7,11 @@ use tokio::runtime::{Handle, Runtime};
 use crate::errors::runtime_error::enums::RuntimeError;
 use crate::errors::watcher_errors::event_error::EventError;
 use crate::errors::watcher_errors::subscriber_error::SubscriptionError;
-use crate::errors::watcher_errors::thread_error::UnexpectedAnyhowError;
 use crate::scripts::structs::Script;
 use crate::runner::types::SpawnMessage;
 use crate::utilities::{thread_types::{BroadcastReceiver, EventMessage, BroadcastSender}, traits::Utilities};
 use super::structs::PathSubscriber;
-use crate::errors::watcher_errors::thread_error::ThreadError;
+use crate::errors::shared_errors::thread_errors::{ThreadError, UnexpectedAnyhowError};
 use super::types::{PathHash, PathsCache, PathsCacheArc};
 
 impl PathSubscriber {

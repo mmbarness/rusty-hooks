@@ -1,7 +1,7 @@
 #![feature(io_error_more)]
-#![feature(result_option_inspect)]
 #![feature(fs_try_exists)]
 mod errors;
+mod health_reporter;
 mod watcher;
 mod runner;
 mod scripts;
@@ -59,18 +59,12 @@ async fn main() {
 
     let awaited_watchers = try_join_all(watchers);
 
+    let health_reporter = health_reporter::HealthReporter::new().unwrap();
+    let report_task = health_reporter.begin_reporting();
+
+    utilities::set_process_lockfile::Lockfile::set(None, None).unwrap();
+
     tokio::select! {
-        a = runner_task => {
-            match a {
-                Ok(_) => {
-                    info!("runner task exited, cleaning up other tasks and exiting")
-                },
-                Err(e) => {
-                    error!("runner task failed: {}", e);
-                    info!("cleaning up other tasks and exiting");
-                }
-            }
-        },
         b = awaited_watchers => {
             match b {
                 Ok(_) => {
@@ -78,6 +72,27 @@ async fn main() {
                 },
                 Err(e) => {
                     error!("event watchers failed: {}", e);
+                    info!("cleaning up other tasks and exiting");
+                }
+            }
+        },
+        b = report_task => {
+            match b {
+                Ok(_) => {
+                    info!("health report task exited.")
+                },
+                Err(e) => {
+                    error!("health report task exited with an error: {}", e);
+                }
+            }
+        },
+        a = runner_task => {
+            match a {
+                Ok(_) => {
+                    info!("runner task exited, cleaning up other tasks and exiting")
+                },
+                Err(e) => {
+                    error!("runner task failed: {}", e);
                     info!("cleaning up other tasks and exiting");
                 }
             }

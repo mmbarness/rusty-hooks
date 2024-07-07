@@ -1,5 +1,5 @@
 use std::{path::PathBuf, sync::Arc};
-use crate::{utilities::{traits::Utilities, thread_types::{BroadcastReceiver, EventMessage}}, errors::watcher_errors::{subscriber_error::SubscriptionError, thread_error::{ThreadError, UnexpectedAnyhowError}}};
+use crate::{errors::{shared_errors::thread_errors::{ThreadError, UnexpectedAnyhowError}, watcher_errors::subscriber_error::SubscriptionError}, utilities::{thread_types::{BroadcastReceiver, EventMessage}, traits::Utilities}};
 use chrono::DateTime;
 use chrono::Utc;
 use chrono::Duration;

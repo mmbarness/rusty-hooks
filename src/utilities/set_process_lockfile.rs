@@ -44,7 +44,7 @@ impl Lockfile {
 
     fn default_lockfile_path() -> Option<PathBuf> {
         let home_dir = BaseDirs::new().and_then(|p| Some(p.home_dir().to_path_buf()))?.canonicalize().ok()?;
-        let rusty_hooks_subdir = Path::new("/home/mmbarnes/rusty-hooks/rusty-hooks.pid").to_path_buf();
+        let rusty_hooks_subdir = Path::join(&Path::new("rusty-hooks/rusty-hooks.pid"), home_dir);
         Some(rusty_hooks_subdir)
     }
 

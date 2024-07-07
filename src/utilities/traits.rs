@@ -2,7 +2,7 @@ use std::{collections::hash_map::DefaultHasher, hash::{Hash, Hasher}, path::{Pat
 use log::{debug, info, error};
 use tokio::runtime::Runtime;
 use crate::{utilities::{thread_types::Channel,timer::Timer}, errors::watcher_errors::path_error::PathError};
-use crate::errors::watcher_errors::thread_error::ThreadError;
+use crate::errors::shared_errors::thread_errors::ThreadError;
 
 pub type DirEntries = Vec<Result<DirEntry, std::io::Error>>;
 

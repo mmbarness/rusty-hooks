@@ -1,12 +1,11 @@
 use std::{path::PathBuf, time::Duration, fs};
-use log::{debug, error};
+use log::{debug, info, error};
 use async_process::{Command, Output};
 use futures::future::try_join_all;
-use log::info;
 use tokio::{sync::broadcast::Sender, task::JoinHandle};
-use crate::errors::watcher_errors::{spawn_error::SpawnError, subscriber_error::SubscriptionError, thread_error::UnexpectedAnyhowError};
+use crate::errors::watcher_errors::{spawn_error::SpawnError, subscriber_error::SubscriptionError};
 use crate::scripts::structs::Script;
-use crate::errors::watcher_errors::thread_error::ThreadError;
+use crate::errors::shared_errors::thread_errors::{ThreadError, UnexpectedAnyhowError};
 use crate::errors::script_errors::script_error::ScriptError;
 use crate::utilities::traits::Utilities;
 use super::structs::Runner;
