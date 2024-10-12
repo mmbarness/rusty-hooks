@@ -68,7 +68,7 @@ impl Runner {
         let target_path_string = target_path.to_str().ok_or(SpawnError::ArgError("failed to parse target path".to_string()))?;
         debug!("script path is at: {}", script_path_string);
         debug!("directory path is at: {}", target_path_string);
-        match fs::try_exists(target_path) {
+        match fs::exists(target_path) {
             Ok(_) => {
                 debug!("target path exists, attempting to run");
             },
@@ -90,7 +90,6 @@ impl Runner {
                 true => {
                     let stdout_str = String::from_utf8(script.stdout.clone()).unwrap_or("".to_string());
                     stdout_str.split("\n").filter(|l|l != &"").for_each(|line| debug!(target: "script_output", "{:?}", line));
-                    // debug!(target: "script_output", "{:?}", stdout_str);
                     info!("script execution successful");
                 },
                 false => {

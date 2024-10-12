@@ -1,5 +1,4 @@
 #![feature(io_error_more)]
-#![feature(fs_try_exists)]
 mod errors;
 mod health_reporter;
 mod watcher;

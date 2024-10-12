@@ -30,11 +30,13 @@ impl Lockfile {
         match file_exists {
             true => {
                 // file exists and is unlocked
+                debug!("lockfile exists, updating pid");
                 preliminary_self.lock_and_update_existing()?;
                 return Ok(preliminary_self)
             }
             false => {
                 // file doesn't exist, need to write a new one
+                debug!("lockfile doesn\'t exist, creating a new one");
                 preliminary_self.create_if_nonexistent()?;
                 preliminary_self.acquire_file_lock()?;
                 return Ok(preliminary_self)
@@ -50,9 +52,9 @@ impl Lockfile {
 
     fn lock_and_update_existing(&mut self) -> Result<(), std::io::Error> {
         self.check_for_existing_lock()?;
-        let converted_pid = Lockfile::convert(&[self.pid; 4]);
-        if let Some(mut t) = &self.lock.as_ref() {
-            t.write_all(&converted_pid)?;
+        let pid_as_str = self.pid.to_string();
+        if let Some(mut pid_file) = &self.lock.as_ref() {
+            pid_file.write_all(&pid_as_str.as_bytes())?;
         } else {
             self.acquire_file_lock()?;
         };
@@ -69,21 +71,6 @@ impl Lockfile {
 
     fn file_path_valid(&self) -> bool {
         self.path.is_file().clone()
-    }
-
-    fn convert(data: &[u32; 4]) -> [u8; 16] {
-        let mut res = [0; 16];
-        for i in 0..4 {
-            res[4*i..][..4].copy_from_slice(&data[i].to_le_bytes());
-        }
-        res
-    }
-
-    fn write_pid_file<'a>(&'a self, valid_path: &'a Path) -> Result<&Path, std::io::Error> {
-        let mut file = File::create(valid_path)?;
-        let pid_as_u8_vec = &Lockfile::convert(&[self.pid; 4]);
-        file.write_all(pid_as_u8_vec)?;
-        Ok(valid_path)
     }
 
     fn acquire_file_lock(&mut self) -> std::io::Result<()> {
@@ -108,8 +95,8 @@ impl Lockfile {
                 // create file inside dir
                 let path_with_filename = &self.path.join("rusty-hooks.pid");
                 let mut file = File::create(path_with_filename)?;
-                let pid_as_u8_vec = &Lockfile::convert(&[self.pid; 4]);
-                file.write_all(pid_as_u8_vec)?;
+                let pid_as_str = self.pid.to_string();
+                file.write_all(pid_as_str.as_bytes())?;
                 self.path = path_with_filename.clone();
                 Ok(())
             }
@@ -117,8 +104,8 @@ impl Lockfile {
                 // use the path to create file
                 let path_with_filename = path.join("rusty-hooks.pid");
                 let mut file = File::create(path_with_filename.clone())?;
-                let pid_as_u8_vec = &Lockfile::convert(&[self.pid; 4]);
-                file.write_all(pid_as_u8_vec)?;
+                let pid_as_str = self.pid.to_string();
+                file.write_all(pid_as_str.as_bytes())?;
                 self.path = path_with_filename;
                 Ok(())
             }
