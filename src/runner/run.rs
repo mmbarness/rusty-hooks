@@ -1,12 +1,11 @@
 use std::{path::PathBuf, time::Duration, fs};
-use log::{debug, error};
+use log::{debug, info, error};
 use async_process::{Command, Output};
 use futures::future::try_join_all;
-use log::info;
 use tokio::{sync::broadcast::Sender, task::JoinHandle};
-use crate::errors::watcher_errors::{spawn_error::SpawnError, subscriber_error::SubscriptionError, thread_error::UnexpectedAnyhowError};
+use crate::errors::watcher_errors::{spawn_error::SpawnError, subscriber_error::SubscriptionError};
 use crate::scripts::structs::Script;
-use crate::errors::watcher_errors::thread_error::ThreadError;
+use crate::errors::shared_errors::thread_errors::{ThreadError, UnexpectedAnyhowError};
 use crate::errors::script_errors::script_error::ScriptError;
 use crate::utilities::traits::Utilities;
 use super::structs::Runner;
@@ -69,7 +68,7 @@ impl Runner {
         let target_path_string = target_path.to_str().ok_or(SpawnError::ArgError("failed to parse target path".to_string()))?;
         debug!("script path is at: {}", script_path_string);
         debug!("directory path is at: {}", target_path_string);
-        match fs::try_exists(target_path) {
+        match fs::exists(target_path) {
             Ok(_) => {
                 debug!("target path exists, attempting to run");
             },
@@ -91,7 +90,6 @@ impl Runner {
                 true => {
                     let stdout_str = String::from_utf8(script.stdout.clone()).unwrap_or("".to_string());
                     stdout_str.split("\n").filter(|l|l != &"").for_each(|line| debug!(target: "script_output", "{:?}", line));
-                    // debug!(target: "script_output", "{:?}", stdout_str);
                     info!("script execution successful");
                 },
                 false => {

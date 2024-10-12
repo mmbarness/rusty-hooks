@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use thiserror::Error;
 use tokio::sync::{TryLockError, broadcast::error::SendError};
-use crate::{errors::runtime_error::enums::RuntimeError, scripts::structs::Script};
-use super::{timer_error::TimerError, thread_error::{ThreadError, UnexpectedAnyhowError}, event_error::EventError};
+use crate::{errors::{runtime_error::enums::RuntimeError, shared_errors::thread_errors::{ThreadError, UnexpectedAnyhowError}}, scripts::structs::Script};
+use super::{timer_error::TimerError, event_error::EventError};
 
 #[derive(Debug, Error)]
 pub enum SubscriptionError {

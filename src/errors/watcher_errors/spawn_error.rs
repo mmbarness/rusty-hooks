@@ -2,7 +2,8 @@ use strum::ParseError;
 use thiserror::Error;
 use tokio::sync::broadcast::error::RecvError;
 
-use super::{thread_error::ThreadError, subscriber_error::SubscriptionError};
+use crate::errors::shared_errors::thread_errors::ThreadError;
+use super::subscriber_error::SubscriptionError;
 
 #[derive(Debug, Error)]
 pub enum SpawnError {
