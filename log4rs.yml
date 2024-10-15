@@ -21,6 +21,21 @@ appenders:
         count: 5
         base: 1
 
+  health_report:
+    kind: rolling_file
+    path: /var/log/rusty-hooks-health-report.log
+    encoder:
+      kind: json
+    policy:
+      trigger:
+        kind: size
+        limit: 50 mb
+      roller:
+        kind: fixed_window
+        pattern: /var/log/rusty-hooks-health-report_{}.log
+        count: 5
+        base: 1
+
   script_output:
     kind: rolling_file
     path: /var/log/rusty-hooks-script-output.log
@@ -43,6 +58,11 @@ root:
     - default
 
 loggers:
+  health_report:
+    level: info
+    appenders:
+      - health_report
+    additive: false
   script_output:
     level: debug
     appenders:

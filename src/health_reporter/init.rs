@@ -23,7 +23,7 @@ impl HealthReporter {
     pub fn begin_reporting(&self) -> JoinHandle<()> {
         self.runtime.spawn(async move {
             loop {
-                info!("rusty hooks is healthy");
+                info!(target: "health_report", "rusty hooks is healthy");
                 sleep(tokio::time::Duration::from_secs(30)).await;
             }
         })
