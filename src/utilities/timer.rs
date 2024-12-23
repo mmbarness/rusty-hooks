@@ -1,11 +1,11 @@
-use std::{sync::Arc, time::Duration};
-use chrono::{DateTime, Utc};
-use tokio::{sync::Mutex, time::sleep};
 use crate::errors::watcher_errors::timer_error::TimerError;
+use chrono::{DateTime, Utc};
+use std::{sync::Arc, time::Duration};
+use tokio::{sync::Mutex, time::sleep};
 
-pub type TimerController = Arc<Mutex<(chrono::Duration,DateTime<Utc>)>>;
+pub type TimerController = Arc<Mutex<(chrono::Duration, DateTime<Utc>)>>;
 pub struct Timer {
-    pub controller: TimerController
+    pub controller: TimerController,
 }
 
 impl Timer {
@@ -13,7 +13,7 @@ impl Timer {
         let duration = chrono::Duration::seconds(wait_duration);
         let waiting_from = chrono::prelude::Utc::now();
         Timer {
-            controller: Arc::new(Mutex::new((duration, waiting_from)))
+            controller: Arc::new(Mutex::new((duration, waiting_from))),
         }
     }
 
@@ -29,8 +29,8 @@ impl Timer {
     pub async fn wait(&self) -> Result<(), TimerError> {
         loop {
             let should_break = self.time_to_break()?;
-            if should_break { 
-                break
+            if should_break {
+                break;
             } else {
                 sleep(Duration::from_millis(500)).await;
             }
@@ -41,15 +41,15 @@ impl Timer {
 
 #[cfg(test)]
 mod tests {
-    use loom::thread;
     use super::Timer;
+    use loom::thread;
 
     #[tokio::test]
-    async fn waits_longer_from_concurrent_controller_updates () {
+    async fn waits_longer_from_concurrent_controller_updates() {
         loom::model(|| {
             let timer = Timer::new(0);
             let controller_clone = timer.controller.clone();
-    
+
             let handle = thread::spawn(move || {
                 let now = chrono::prelude::Utc::now();
                 let duration_to_add = chrono::Duration::hours(1);
@@ -59,7 +59,7 @@ mod tests {
             });
 
             handle.join().unwrap();
-            
+
             assert_eq!(timer.time_to_break().unwrap(), false)
         });
     }
@@ -90,7 +90,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn waits_long_enough () {
+    async fn waits_long_enough() {
         let before = chrono::prelude::Utc::now();
         let chrono_duration = chrono::Duration::seconds(1);
         let timer = Timer::new(2);
@@ -101,3 +101,4 @@ mod tests {
         assert_eq!(has_been_long_enough, true)
     }
 }
+

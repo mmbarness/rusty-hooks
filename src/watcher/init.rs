@@ -1,12 +1,18 @@
-use log::{error, debug, info};
-use tokio::{sync::broadcast::{error::RecvError, Sender}, task::JoinHandle};
-use std::{sync::Arc, path::PathBuf};
-use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher, Config};
-use crate::{utilities::thread_types::UnsubscribeSender, errors::watcher_errors::{event_error::EventError, subscriber_error::SubscriptionError}};
-use crate::scripts::structs::{Scripts, Script};
-use crate::errors::watcher_errors::watcher_error::WatcherError;
-use crate::utilities::{traits::Utilities, thread_types::EventChannel};
 use super::structs::{PathSubscriber, Watcher};
+use crate::errors::watcher_errors::watcher_error::WatcherError;
+use crate::scripts::structs::{Script, Scripts};
+use crate::utilities::{thread_types::EventChannel, traits::Utilities};
+use crate::{
+    errors::watcher_errors::{event_error::EventError, subscriber_error::SubscriptionError},
+    utilities::thread_types::UnsubscribeSender,
+};
+use log::{debug, error, info};
+use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher};
+use std::{path::PathBuf, sync::Arc};
+use tokio::{
+    sync::broadcast::{error::RecvError, Sender},
+    task::JoinHandle,
+};
 
 impl Watcher {
     pub fn new() -> Result<Self, WatcherError> {
@@ -18,20 +24,16 @@ impl Watcher {
 
     /// Creates a new [`notify::RecommendedWatcher`] and passes the RecommendedWatcher a callback to emit events over an MPSC channel
     /// monitored in the route_subscriptions function.
-    fn notifier_task() -> notify::Result<(
-        RecommendedWatcher, EventChannel
-    )> {
-        let (
-            events_emitter,
-            events_receiver
-        ) = tokio::sync::broadcast::channel::<Result<Event, Arc<notify::Error>>>(16);
+    fn notifier_task() -> notify::Result<(RecommendedWatcher, EventChannel)> {
+        let (events_emitter, events_receiver) =
+            tokio::sync::broadcast::channel::<Result<Event, Arc<notify::Error>>>(16);
         let events_channel_clone = events_emitter.clone();
 
-        let notify_watcher = RecommendedWatcher::new(move |res| {
-            match res {
+        let notify_watcher = RecommendedWatcher::new(
+            move |res| match res {
                 Ok(event) => {
                     match events_emitter.send(Ok(event)) {
-                        Ok(_) => {},
+                        Ok(_) => {}
                         Err(e) => {
                             error!("error sending new event: {:?}", e)
                         }
@@ -41,8 +43,9 @@ impl Watcher {
                     let error_arc = Arc::new(e);
                     events_emitter.send(Err(error_arc)).unwrap();
                 }
-            }
-        }, Config::default())?;
+            },
+            Config::default(),
+        )?;
 
         Ok((notify_watcher, (events_channel_clone, events_receiver)))
     }
@@ -50,26 +53,23 @@ impl Watcher {
     /// Begins watching a certain path. Uses its runtime to initialize threads to accept new subscriptions on, accept unsubscriptions on,
     /// and to watch for new events.
     pub async fn start(
-        &self, spawn_channel: Sender<(PathBuf, Vec<Script>)>, unsubscribe_channel: UnsubscribeSender, watch_path: PathBuf, scripts: &Scripts
+        &self,
+        spawn_channel: Sender<(PathBuf, Vec<Script>)>,
+        unsubscribe_channel: UnsubscribeSender,
+        watch_path: PathBuf,
+        scripts: &Scripts,
     ) -> Result<(), WatcherError> {
         info!("now watching path: {}", &watch_path.to_str().unwrap());
-        let (
-            mut notifier_handle,
-            (
-                events_emitter,
-                events_receiver
-            )
-        ) = Self::notifier_task().map_err(EventError::NotifyError)?;
+        let (mut notifier_handle, (events_emitter, events_receiver)) =
+            Self::notifier_task().map_err(EventError::NotifyError)?;
 
-        notifier_handle.watch(watch_path.as_ref(), RecursiveMode::Recursive).map_err(EventError::NotifyError)?;
+        notifier_handle
+            .watch(watch_path.as_ref(), RecursiveMode::Recursive)
+            .map_err(EventError::NotifyError)?;
 
         let path_subscriber = PathSubscriber::new()?;
 
-        let (
-            unsubscribe_task,
-            subscribe_task,
-            events_task
-        ) = Self::initialize_watcher_tasks(
+        let (unsubscribe_task, subscribe_task, events_task) = Self::initialize_watcher_tasks(
             &self,
             events_emitter,
             events_receiver,
@@ -85,7 +85,9 @@ impl Watcher {
 
         // cleanup
         debug!("unwatching path, tasks will close");
-        notifier_handle.unwatch(watch_path.as_ref()).map_err(EventError::NotifyError)?;
+        notifier_handle
+            .unwatch(watch_path.as_ref())
+            .map_err(EventError::NotifyError)?;
 
         Ok(())
     }
@@ -96,7 +98,7 @@ impl Watcher {
     /// processed by the relevant scripts.
     fn initialize_watcher_tasks(
         &self,
-        events_emitter:Sender<Result<Event, Arc<notify::Error>>>,
+        events_emitter: Sender<Result<Event, Arc<notify::Error>>>,
         events_receiver: tokio::sync::broadcast::Receiver<Result<Event, Arc<notify::Error>>>,
         paths: Arc<tokio::sync::Mutex<std::collections::HashMap<u64, (PathBuf, Vec<Script>)>>>,
         path_subscriber: PathSubscriber,
@@ -107,7 +109,7 @@ impl Watcher {
     ) -> (
         JoinHandle<Result<(), SubscriptionError>>,
         JoinHandle<Result<(), SubscriptionError>>,
-        JoinHandle<Result<(), RecvError>>
+        JoinHandle<Result<(), RecvError>>,
     ) {
         let subscriber_channel_1 = path_subscriber.subscribe_channel.0.clone();
         let subscriber_channel_2 = path_subscriber.subscribe_channel.0.clone();
@@ -121,18 +123,21 @@ impl Watcher {
                 events_receiver,
                 watch_path_clone,
                 scripts,
-                subscriber_channel_2
-            ).await
+                subscriber_channel_2,
+            )
+            .await
         });
 
         // start watching for new path subscriptions coming from the event watcher
         let subscription_task = self.runtime.spawn(async move {
-            path_subscriber.route_subscriptions(
-                events_emitter.clone(),
-                spawn_channel,
-                subscriber_channel_1,
-                paths_clone
-            ).await
+            path_subscriber
+                .route_subscriptions(
+                    events_emitter.clone(),
+                    spawn_channel,
+                    subscriber_channel_1,
+                    paths_clone,
+                )
+                .await
         });
 
         // start watching for paths to *unsubscribe* from
@@ -145,7 +150,11 @@ impl Watcher {
 
     /// Uses [`tokio::select!`] to kill *all* futures if *any* fail. If the event loop exits,
     /// for example, the task watching for new path subscriptions will too.
-    async fn handle_all_futures(events: JoinHandle<Result<(), RecvError>>, subscriptions:JoinHandle<Result<(), SubscriptionError>>, unsubscription: JoinHandle<Result<(), SubscriptionError>>) -> () {
+    async fn handle_all_futures(
+        events: JoinHandle<Result<(), RecvError>>,
+        subscriptions: JoinHandle<Result<(), SubscriptionError>>,
+        unsubscription: JoinHandle<Result<(), SubscriptionError>>,
+    ) -> () {
         tokio::select! {
             a = events => {
                 match a {

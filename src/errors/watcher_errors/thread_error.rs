@@ -1,4 +1,4 @@
-use std::sync::{PoisonError, MutexGuard};
+use std::sync::{MutexGuard, PoisonError};
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -18,16 +18,16 @@ pub enum ThreadError {
 
 pub type LockError<'a, T> = PoisonError<MutexGuard<'a, T>>;
 
-impl <'a,T> From<LockError<'a,T>> for ThreadError {
-    fn from(value: LockError<'a,T>) -> Self {
+impl<'a, T> From<LockError<'a, T>> for ThreadError {
+    fn from(value: LockError<'a, T>) -> Self {
         ThreadError::LockError(value.to_string())
     }
 }
 
 pub trait UnexpectedAnyhowError {
-    fn new_unexpected_error<T: std::convert::From<anyhow::Error>> (message: String) -> T {
+    fn new_unexpected_error<T: std::convert::From<anyhow::Error>>(message: String) -> T {
         let generic_anyhow_error = anyhow::format_err!(message);
-        let to_return:T = generic_anyhow_error.into();
+        let to_return: T = generic_anyhow_error.into();
         to_return
     }
 }

@@ -1,9 +1,9 @@
-use thiserror::Error;
-use crate::errors::{runtime_error::enums::RuntimeError, script_errors::script_error::ScriptError, shared_errors::thread_errors::ThreadError};
-use super::{
-    event_error::EventError,
-    path_error::PathError, subscriber_error::SubscriptionError
+use super::{event_error::EventError, path_error::PathError, subscriber_error::SubscriptionError};
+use crate::errors::{
+    runtime_error::enums::RuntimeError, script_errors::script_error::ScriptError,
+    shared_errors::thread_errors::ThreadError,
 };
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum WatcherError {
@@ -18,5 +18,5 @@ pub enum WatcherError {
     #[error("error communicating between threads: `${0}`")]
     ThreadError(#[from] ThreadError),
     #[error("error handling user scripts: `${0}`")]
-    ScriptError(#[from] ScriptError)
+    ScriptError(#[from] ScriptError),
 }

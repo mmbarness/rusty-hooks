@@ -1,7 +1,4 @@
-use crate::{
-    errors::shared_errors::thread_errors::ThreadError,
-    utilities::traits::Utilities
-};
+use crate::{errors::shared_errors::thread_errors::ThreadError, utilities::traits::Utilities};
 use log::info;
 use tokio::{task::JoinHandle, time::sleep};
 

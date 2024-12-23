@@ -2,8 +2,8 @@ use strum::ParseError;
 use thiserror::Error;
 use tokio::sync::broadcast::error::RecvError;
 
-use crate::errors::shared_errors::thread_errors::ThreadError;
 use super::subscriber_error::SubscriptionError;
+use crate::errors::shared_errors::thread_errors::ThreadError;
 
 #[derive(Debug, Error)]
 pub enum SpawnError {
@@ -20,5 +20,5 @@ pub enum SpawnError {
     #[error("`{0}`")]
     ScriptError(String),
     #[error("error unsubscribing: `{0}`")]
-    UnsubscriberError(#[from] SubscriptionError)
+    UnsubscriberError(#[from] SubscriptionError),
 }

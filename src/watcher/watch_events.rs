@@ -1,22 +1,21 @@
+use super::structs::Watcher;
+use crate::scripts::structs::Scripts;
+use crate::utilities::thread_types::{EventsReceiver, SubscribeSender};
+use crate::{scripts::structs::Script, utilities::traits::Utilities};
 use itertools::Itertools;
 use log::{debug, error};
-use tokio::sync::broadcast::error::{RecvError, SendError};
+use notify::{event::ModifyKind, Event, EventKind};
 use std::sync::Arc;
-use std::{path::PathBuf, collections::HashSet};
-use notify::{Event, event::ModifyKind, EventKind};
-use crate::{scripts::structs::Script, utilities::traits::Utilities};
-use crate::scripts::structs::Scripts;
-use super::structs::Watcher;
-use crate::utilities::thread_types::{EventsReceiver, SubscribeSender};
+use std::{collections::HashSet, path::PathBuf};
+use tokio::sync::broadcast::error::{RecvError, SendError};
 
 impl Watcher {
-
     /// Awaits events emitted by notify. See [`notify::event`].
     pub async fn watch_events(
         mut events_receiver: EventsReceiver,
         root_dir: PathBuf,
         scripts: Scripts,
-        subscribe_channel: SubscribeSender
+        subscribe_channel: SubscribeSender,
     ) -> Result<(), RecvError> {
         debug!("spawned event watching thread");
         loop {
@@ -28,30 +27,26 @@ impl Watcher {
                     error!("Error encountered while a receiving a new event: {:?}", e);
                 }
             };
-        };
+        }
     }
 
     fn evaluate_event(
         res: Result<Event, Arc<notify::Error>>,
         root_dir: &PathBuf,
         subscribe_channel: &SubscribeSender,
-        scripts: &Scripts
+        scripts: &Scripts,
     ) {
         match res {
             Ok(event) => {
-                let subscription_errors = Self::decide_to_subscribe(
-                    &event,
-                    &root_dir,
-                    &subscribe_channel,
-                    &scripts
-                );
+                let subscription_errors =
+                    Self::decide_to_subscribe(&event, &root_dir, &subscribe_channel, &scripts);
                 for error in &subscription_errors {
                     error!("{:?}", error)
                 }
-            },
+            }
             Err(e) => {
                 error!("notify error: {:?}", e);
-            },
+            }
         }
     }
 
@@ -59,23 +54,20 @@ impl Watcher {
         event: &Event,
         root_dir: &PathBuf,
         subscribe_channel: &SubscribeSender,
-        scripts: &Scripts
+        scripts: &Scripts,
     ) -> Vec<tokio::sync::broadcast::error::SendError<(PathBuf, Vec<Script>)>> {
         match Self::ignore(&event) {
             true => vec![],
             false => {
-                let unique_event_home_dirs = Self::get_unique_event_home_dirs(
-                    &event,
-                    root_dir.clone(),
-                );
-                unique_event_home_dirs.iter().map(|event_home_dir| {
-                    Self::send_new_event(
-                        &event,
-                        event_home_dir,
-                        &scripts,
-                        &subscribe_channel,
-                    )
-                }).filter_map(|f| f.err()).collect_vec()
+                let unique_event_home_dirs =
+                    Self::get_unique_event_home_dirs(&event, root_dir.clone());
+                unique_event_home_dirs
+                    .iter()
+                    .map(|event_home_dir| {
+                        Self::send_new_event(&event, event_home_dir, &scripts, &subscribe_channel)
+                    })
+                    .filter_map(|f| f.err())
+                    .collect_vec()
             }
         }
     }
@@ -83,10 +75,7 @@ impl Watcher {
     /// Accepts events of kind Modify, finds *their* root dirs, i.e. the uppermost affected directory relative to the root watched path, and sends those to the subscribe runtime.
     /// Example: If a watch path derived from the user-provided scripts.yml is /home/user/script_1_watch_path, and the incoming event occurred
     /// at /home/user/script_1/very/very/very/nested, /home/user/script_1/very will be returned.
-    fn get_unique_event_home_dirs(
-        event: &Event,
-        root_dir: PathBuf,
-    ) -> HashSet<PathBuf> {
+    fn get_unique_event_home_dirs(event: &Event, root_dir: PathBuf) -> HashSet<PathBuf> {
         let root_dir = root_dir.clone();
         let event_clone = event.clone();
         let paths = event_clone.paths;
@@ -114,8 +103,8 @@ impl Watcher {
         subscribe_channel: &SubscribeSender,
     ) -> Result<(), SendError<(PathBuf, Vec<Script>)>> {
         match subscribe_channel.send((event_dir.clone(), scripts.get_by_event(&event.kind))) {
-            Ok(_) => { Ok(()) },
-            Err(e) => Err(e)
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
@@ -127,7 +116,7 @@ impl Watcher {
                     ModifyKind::Name(notify::event::RenameMode::To) => false,
                     _ => true,
                 }
-            },
+            }
             _ => true,
         }
     }

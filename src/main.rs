@@ -1,20 +1,23 @@
 #![feature(io_error_more)]
 mod errors;
 mod health_reporter;
-mod watcher;
 mod runner;
 mod scripts;
 mod utilities;
+mod watcher;
 
-use std::path::{PathBuf, Path};
 use clap::Parser;
 use errors::watcher_errors::watcher_error::WatcherError;
 use futures::future::try_join_all;
-use log::{debug, info, error};
+use log::{debug, error, info};
 use runner::structs::Runner;
 use scripts::structs::Scripts;
+use std::path::{Path, PathBuf};
+use utilities::{
+    cli_args::CommandLineArgs,
+    thread_types::{SpawnSender, UnsubscribeSender},
+};
 use watcher::structs::Watcher;
-use utilities::{thread_types::{SpawnSender, UnsubscribeSender}, cli_args::CommandLineArgs};
 
 use crate::utilities::set_process_lockfile::Lockfile;
 
@@ -52,9 +55,17 @@ async fn main() {
         }
     };
 
-    let watchers:Vec<_> = watch_paths.iter().map(|watch_path| {
-        initialize_watchers(watch_path, config_path_clone, script_task_spawn_channel.clone(), unsub_from_folder_channel.clone())
-    }).collect();
+    let watchers: Vec<_> = watch_paths
+        .iter()
+        .map(|watch_path| {
+            initialize_watchers(
+                watch_path,
+                config_path_clone,
+                script_task_spawn_channel.clone(),
+                unsub_from_folder_channel.clone(),
+            )
+        })
+        .collect();
 
     let awaited_watchers = try_join_all(watchers);
 
@@ -99,7 +110,12 @@ async fn main() {
     }
 }
 
-async fn initialize_watchers(watch_path:&PathBuf, scripts_config_path: &Path, spawn_channel: SpawnSender, unsubscribe_channel: UnsubscribeSender) -> Result<(), WatcherError>{
+async fn initialize_watchers(
+    watch_path: &PathBuf,
+    scripts_config_path: &Path,
+    spawn_channel: SpawnSender,
+    unsubscribe_channel: UnsubscribeSender,
+) -> Result<(), WatcherError> {
     let watcher_scripts = match Scripts::by_watch_path(watch_path, scripts_config_path) {
         Ok(s) => s,
         Err(e) => {
@@ -110,5 +126,12 @@ async fn initialize_watchers(watch_path:&PathBuf, scripts_config_path: &Path, sp
 
     let watcher = Watcher::new()?;
 
-    Ok(watcher.start(spawn_channel, unsubscribe_channel, watch_path.clone(), &watcher_scripts).await?)
+    Ok(watcher
+        .start(
+            spawn_channel,
+            unsubscribe_channel,
+            watch_path.clone(),
+            &watcher_scripts,
+        )
+        .await?)
 }

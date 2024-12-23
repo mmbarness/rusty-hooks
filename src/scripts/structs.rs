@@ -1,12 +1,15 @@
-use std::{collections::HashMap, path::{Path, PathBuf}};
+use crate::utilities::traits::Utilities;
 use notify::EventKind;
 use serde::{Deserialize, Serialize};
-use crate::utilities::traits::Utilities;
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, Clone)]
 pub struct Scripts {
     pub scripts_by_event_triggers: ScriptsByEventTrigger,
-    pub watch_paths: Vec<PathBuf>
+    pub watch_paths: Vec<PathBuf>,
 }
 
 pub type ScriptsByEventTrigger = HashMap<EventKind, Vec<Script>>; // string identifies the event type, Vec<ScriptSchemas> are all scripts that should run on a given event
@@ -31,12 +34,12 @@ pub struct ScriptBlock {
     pub enabled: bool,
     pub run_delay: u8,
     pub event_triggers: Vec<String>,
-    pub dependencies: Vec<Option<String>>
+    pub dependencies: Vec<Option<String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ScriptYAML {
-    pub scripts: Vec<ScriptBlock>
+    pub scripts: Vec<ScriptBlock>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -64,7 +67,7 @@ impl From<ScriptJSON> for Script {
             file_name: json.file_name,
             failed: None,
             run_delay: json.run_delay,
-            watch_path
+            watch_path,
         }
     }
 }
@@ -82,7 +85,7 @@ impl From<ScriptBlock> for Script {
             file_name: block.file_name,
             failed: None,
             run_delay: block.run_delay,
-            watch_path
+            watch_path,
         }
     }
 }
@@ -100,7 +103,7 @@ impl From<&ScriptBlock> for Script {
             file_name: yaml.file_name.clone(),
             failed: None,
             run_delay: yaml.run_delay,
-            watch_path
+            watch_path,
         }
     }
 }
@@ -117,7 +120,7 @@ impl From<&ScriptJSON> for Script {
             file_name: json.file_name.clone(),
             failed: None,
             run_delay: json.run_delay,
-            watch_path
+            watch_path,
         }
     }
 }
