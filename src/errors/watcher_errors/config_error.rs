@@ -3,7 +3,7 @@ use strum::ParseError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum ConfigError{
+pub enum ConfigError {
     #[error("Unable to find env var: `{0}`")]
     ArgError(String),
     #[error("Error while parsing env vars: `{0}`")]
@@ -13,3 +13,4 @@ pub enum ConfigError{
     #[error("Error with strum: `{0}`")]
     ParseIntError(#[from] ParseIntError),
 }
+

@@ -1,6 +1,6 @@
+use crate::errors::watcher_errors::spawn_error::SpawnError;
 use anyhow::anyhow;
 use thiserror::Error;
-use crate::errors::watcher_errors::spawn_error::SpawnError;
 
 #[derive(Debug, Error)]
 pub enum ScriptError {

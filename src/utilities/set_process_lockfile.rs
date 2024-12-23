@@ -2,19 +2,24 @@ use crate::errors::watcher_errors::path_error::PathError;
 use directories::BaseDirs;
 use fs2::FileExt;
 use log::debug;
-use std::{path::{Path, PathBuf}, fs::File, io::Write};
+use std::{
+    fs::File,
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug)]
-pub struct Lockfile{
+pub struct Lockfile {
     pub locked: bool,
     pub lock: Option<File>,
     pub pid: u32,
-    pub path: PathBuf
+    pub path: PathBuf,
 }
 
 impl Lockfile {
     pub fn set(pid: Option<u32>, path: Option<&PathBuf>) -> Result<Self, std::io::Error> {
-        let default_path = Lockfile::default_lockfile_path().expect("unable to configure path to write pid to");
+        let default_path =
+            Lockfile::default_lockfile_path().expect("unable to configure path to write pid to");
 
         let mut preliminary_self = Lockfile {
             locked: false,
@@ -25,27 +30,33 @@ impl Lockfile {
 
         let file_exists = preliminary_self.file_path_valid();
 
-        debug!("default path to lockfile is: {}", default_path.to_str().unwrap());
+        debug!(
+            "default path to lockfile is: {}",
+            default_path.to_str().unwrap()
+        );
 
         match file_exists {
             true => {
                 // file exists and is unlocked
                 debug!("lockfile exists, updating pid");
                 preliminary_self.lock_and_update_existing()?;
-                return Ok(preliminary_self)
+                return Ok(preliminary_self);
             }
             false => {
                 // file doesn't exist, need to write a new one
                 debug!("lockfile doesn\'t exist, creating a new one");
                 preliminary_self.create_if_nonexistent()?;
                 preliminary_self.acquire_file_lock()?;
-                return Ok(preliminary_self)
+                return Ok(preliminary_self);
             }
         }
     }
 
     fn default_lockfile_path() -> Option<PathBuf> {
-        let home_dir = BaseDirs::new().and_then(|p| Some(p.home_dir().to_path_buf()))?.canonicalize().ok()?;
+        let home_dir = BaseDirs::new()
+            .and_then(|p| Some(p.home_dir().to_path_buf()))?
+            .canonicalize()
+            .ok()?;
         let rusty_hooks_subdir = Path::join(&Path::new("rusty-hooks/rusty-hooks.pid"), home_dir);
         Some(rusty_hooks_subdir)
     }
@@ -63,7 +74,10 @@ impl Lockfile {
 
     fn check_for_existing_lock(&self) -> Result<(), std::io::Error> {
         let io_error_kind = std::io::ErrorKind::InvalidFilename;
-        let filepath_error = std::io::Error::new(io_error_kind, PathError::InvalidPath("error with path provided for lockfile".into()));
+        let filepath_error = std::io::Error::new(
+            io_error_kind,
+            PathError::InvalidPath("error with path provided for lockfile".into()),
+        );
         self.file_path_valid().then_some(()).ok_or(filepath_error)?;
         let file = File::open(&self.path)?.try_clone()?;
         file.try_lock_exclusive()
@@ -81,9 +95,9 @@ impl Lockfile {
         Ok(())
     }
 
-    fn create_if_nonexistent(&mut self) -> Result<(),std::io::Error> {
+    fn create_if_nonexistent(&mut self) -> Result<(), std::io::Error> {
         if self.file_path_valid() {
-            return Ok(())
+            return Ok(());
         }
 
         let provided_path_is_dir = &self.path.is_dir();
@@ -112,9 +126,12 @@ impl Lockfile {
             (false, None) => {
                 // no useable path
                 let io_error_kind = std::io::ErrorKind::InvalidFilename;
-                let custom_error2 = std::io::Error::new(io_error_kind, PathError::InvalidPath("error with path provided for lockfile".into()));
+                let custom_error2 = std::io::Error::new(
+                    io_error_kind,
+                    PathError::InvalidPath("error with path provided for lockfile".into()),
+                );
                 Err(custom_error2)
             }
-        }
+        };
     }
 }
