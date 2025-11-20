@@ -21,7 +21,7 @@ use watcher::structs::Watcher;
 
 use crate::utilities::set_process_lockfile::Lockfile;
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 12)]
 async fn main() {
     let args = CommandLineArgs::parse();
     log4rs::init_file("log4rs.yml", Default::default()).unwrap();

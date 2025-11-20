@@ -1,20 +1,41 @@
+# Environment files
 .env
+.env.local
 
-# personal scripts
-scripts
-scripts
+# Personal user scripts (use scripts.example/ for examples)
+/scripts/
 
-#compilations
-target
+# Personal systemd service (use rusty-hooks.service.example)
+rusty-hooks.service
 
-*.out
+# Internal documentation (not for public repo)
+RUNNING.md
+MIGRATION_SUMMARY.md
+COMMIT_GUIDE.md
+GIT_SUMMARY.md
 
-start_script.sh
+# Build artifacts
+/target/
 
-#docker commands
-docker_scripts
+# Runtime logs
+nohup.out
+*.log
 
-#vscode/IDE stuff
+# Docker
+docker_scripts/
+
+# IDE and editor files
+.vscode/
+.idea/
 *.code-workspace
-.devcontainer
-.vscode
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Dev container
+.devcontainer/
+
+# Backup files
+*.bak
+*.orig

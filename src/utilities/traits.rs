@@ -111,7 +111,7 @@ pub trait Utilities {
     }
 
     fn new_channel<T: std::clone::Clone>() -> Channel<T> {
-        tokio::sync::broadcast::channel::<T>(16)
+        tokio::sync::broadcast::channel::<T>(256)
     }
 
     fn new_runtime(num_threads: usize, thread_name: &String) -> Result<Runtime, ThreadError> {

@@ -6,14 +6,10 @@ use crate::utilities::{
 };
 use std::sync::Arc;
 use std::{collections::HashMap, path::PathBuf};
-use tokio::runtime::Runtime;
 
 /// Watches for events at a given path and executes scripts hooked to that path when appropriate.
 #[derive(Debug)]
-pub struct Watcher {
-    /// Runtime used to spawn the tasks need to watch for new subscriptions, unsubscriptions, and events.
-    pub runtime: Runtime,
-}
+pub struct Watcher {}
 
 #[derive(Debug)]
 pub struct PathSubscriber {
@@ -23,8 +19,6 @@ pub struct PathSubscriber {
     pub subscribe_channel: SubscribeChannel,
     /// MPSC channel by which paths are unsubscribed from.
     pub unsubscribe_channel: UnsubscribeChannel,
-    /// Runtime used to run timers in parallel.
-    pub wait_threads: Runtime,
 }
 
 impl Utilities for PathSubscriber {}

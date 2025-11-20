@@ -13,7 +13,7 @@ use crate::utilities::{
 use log::{debug, error, info};
 use notify::Event;
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
-use tokio::runtime::{Handle, Runtime};
+use tokio::runtime::Handle;
 use tokio::sync::broadcast::Receiver;
 use tokio::task::JoinHandle;
 
@@ -21,12 +21,10 @@ impl PathSubscriber {
     pub fn new() -> Result<Self, SubscriptionError> {
         let path_cache: HashMap<PathHash, (PathBuf, Vec<Script>)> = HashMap::new();
         let paths = Arc::new(tokio::sync::Mutex::new(path_cache));
-        let wait_threads = Self::new_runtime(4, &"timer-threads".to_string())?;
         Ok(PathSubscriber {
             paths,
             subscribe_channel: Self::new_channel::<SpawnMessage>(),
             unsubscribe_channel: Self::new_channel::<PathBuf>(),
-            wait_threads,
         })
     }
 
@@ -225,11 +223,9 @@ impl PathSubscriber {
             }
             if subscribed_to_new_path {
                 let spawn_channel = spawn_channel.clone();
-                // TODO: create channel for a timer and event thread to communicate, and spawn both on wait threads so that start_waiting need not spawn its own
                 let _: JoinHandle<Result<(), SubscriptionError>> = Self::spawn_new_wait_thread(
                     events_emitter.subscribe(),
                     path,
-                    &self.wait_threads,
                     scripts,
                     spawn_channel,
                 );
@@ -240,11 +236,10 @@ impl PathSubscriber {
     fn spawn_new_wait_thread(
         events: Receiver<Result<Event, Arc<notify::Error>>>,
         path: PathBuf,
-        wait_threads: &Runtime,
         scripts: Vec<Script>,
         spawn_channel: tokio::sync::broadcast::Sender<(PathBuf, Vec<Script>)>,
     ) -> JoinHandle<Result<(), SubscriptionError>> {
-        wait_threads.spawn(async move {
+        tokio::spawn(async move {
             let wait_out_new_events_path = Self::start_waiting(path.clone(), events);
             wait_out_new_events_path.await?;
             info!("successfully waited on timer expiration, now running scripts");

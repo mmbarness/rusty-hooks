@@ -1,0 +1,26 @@
+[Unit]
+Description=Rusty Hooks - Filesystem Event Watcher
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+Group=YOUR_USERNAME
+WorkingDirectory=/path/to/rusty-hooks
+ExecStart=/path/to/rusty-hooks/target/release/rusty-hooks --script-folder /path/to/rusty-hooks/scripts --log-level debug
+
+# Restart on failure
+Restart=on-failure
+RestartSec=5s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging (journald will handle this, plus log4rs writes to /var/log/)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rusty-hooks
+
+[Install]
+WantedBy=multi-user.target

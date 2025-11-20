@@ -1,7 +1,7 @@
 use super::structs::{PathSubscriber, Watcher};
 use crate::errors::watcher_errors::watcher_error::WatcherError;
 use crate::scripts::structs::{Script, Scripts};
-use crate::utilities::{thread_types::EventChannel, traits::Utilities};
+use crate::utilities::thread_types::EventChannel;
 use crate::{
     errors::watcher_errors::{event_error::EventError, subscriber_error::SubscriptionError},
     utilities::thread_types::UnsubscribeSender,
@@ -16,10 +16,7 @@ use tokio::{
 
 impl Watcher {
     pub fn new() -> Result<Self, WatcherError> {
-        let watcher_runtime = <Self as Utilities>::new_runtime(4, &"watcher-runtime".to_string())?;
-        Ok(Watcher {
-            runtime: watcher_runtime,
-        })
+        Ok(Watcher {})
     }
 
     /// Creates a new [`notify::RecommendedWatcher`] and passes the RecommendedWatcher a callback to emit events over an MPSC channel
@@ -118,7 +115,7 @@ impl Watcher {
         let watch_path_clone = watch_path.clone();
 
         // start watching for new events from the notify crate
-        let events_task: JoinHandle<Result<(), RecvError>> = self.runtime.spawn(async move {
+        let events_task: JoinHandle<Result<(), RecvError>> = tokio::spawn(async move {
             Self::watch_events(
                 events_receiver,
                 watch_path_clone,
@@ -129,7 +126,7 @@ impl Watcher {
         });
 
         // start watching for new path subscriptions coming from the event watcher
-        let subscription_task = self.runtime.spawn(async move {
+        let subscription_task = tokio::spawn(async move {
             path_subscriber
                 .route_subscriptions(
                     events_emitter.clone(),
@@ -141,7 +138,7 @@ impl Watcher {
         });
 
         // start watching for paths to *unsubscribe* from
-        let unsubscribe_task = self.runtime.spawn(async move {
+        let unsubscribe_task = tokio::spawn(async move {
             PathSubscriber::unsubscribe_task(unsubscribe_receiver, paths, watch_path).await
         });
 

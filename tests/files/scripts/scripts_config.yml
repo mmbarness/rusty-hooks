@@ -1,0 +1,9 @@
+scripts:
+- name: "filebot_music"
+  description: "run filebot against music download folder"
+  watch_path: /media/wd3/programming/rusty-hooks/tests/files/watch_location
+  file_name: test_script.sh
+  enabled: true
+  run_delay: 0
+  event_triggers: ["Modify"]
+  dependencies: []

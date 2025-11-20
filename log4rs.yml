@@ -54,8 +54,8 @@ appenders:
 root:
   level: debug
   appenders:
-    - stdout
     - default
+    # Removed stdout appender - use file logging only when running as daemon
 
 loggers:
   health_report:

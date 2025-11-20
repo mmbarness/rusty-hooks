@@ -25,33 +25,7 @@ impl Scripts {
     ) -> Result<Vec<Script>, ScriptConfigError> {
         let script_validations: Vec<Result<(bool, PathBuf), std::io::Error>> = unvalidated_scripts
             .iter()
-            .map(|script| {
-                let script_path = Self::build_path(&vec![&script_directory, &script.file_name]);
-                let io_error_kind = std::io::ErrorKind::InvalidFilename;
-                let script_path_io_error = std::io::Error::new(
-                    io_error_kind,
-                    format!(
-                        "unable to find script: {}, at path: {}",
-                        script.file_name,
-                        Self::format_unvalidated_path(&vec![
-                            &"./".to_string(),
-                            &script_directory,
-                            &script.file_name
-                        ])
-                        .to_string()
-                    ),
-                );
-                let internal_watch_path = &script.watch_path;
-                let watch_paths_match =
-                    watch_path.clone() == std::path::Path::new(internal_watch_path).to_path_buf();
-
-                match (script_path, watch_paths_match) {
-                    (Some(path), true) => Ok((true, path)),
-                    (None, true) => Err(script_path_io_error),
-                    (Some(path), false) => Ok((false, path)),
-                    (None, false) => Err(script_path_io_error),
-                }
-            })
+            .map(|script| Self::validate_script(watch_path, script, script_directory))
             .collect();
 
         let scripts_matching_watch_path: Vec<&Result<(bool, PathBuf), std::io::Error>> =
@@ -83,6 +57,38 @@ impl Scripts {
             Err(ScriptConfigError::IoError(io_error))
         } else {
             Ok(unvalidated_scripts.iter().map_into().collect_vec())
+        }
+    }
+
+    fn validate_script(
+        watch_path: &PathBuf,
+        unvalidated_script: &ScriptBlock,
+        script_directory: &String,
+    ) -> Result<(bool, PathBuf), std::io::Error> {
+        let script_path = Self::build_path(&vec![&script_directory, &unvalidated_script.file_name]);
+        let io_error_kind = std::io::ErrorKind::InvalidFilename;
+        let script_path_io_error = std::io::Error::new(
+            io_error_kind,
+            format!(
+                "unable to find script: {}, at path: {}",
+                unvalidated_script.file_name,
+                Self::format_unvalidated_path(&vec![
+                    &"./".to_string(),
+                    &script_directory,
+                    &unvalidated_script.file_name
+                ])
+                .to_string()
+            ),
+        );
+        let internal_watch_path = &unvalidated_script.watch_path;
+        let watch_paths_match =
+            watch_path.clone() == std::path::Path::new(internal_watch_path).to_path_buf();
+
+        match (script_path, watch_paths_match) {
+            (Some(path), true) => Ok((true, path)),
+            (None, true) => Err(script_path_io_error),
+            (Some(path), false) => Ok((false, path)),
+            (None, false) => Err(script_path_io_error),
         }
     }
 

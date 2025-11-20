@@ -14,9 +14,7 @@ impl Runner {
     pub fn new() -> Result<Self, ThreadError> {
         let spawn_channel = <Self as Utilities>::new_channel::<(PathBuf, Vec<Script>)>();
         let unsubscribe_broadcast_channel = <Self as Utilities>::new_channel::<PathBuf>();
-        let script_runtime = <Self as Utilities>::new_runtime(4, &"script-runner".to_string())?;
         Ok(Runner {
-            runtime: script_runtime,
             spawn_channel,
             unsubscribe_broadcast_channel,
         })
@@ -36,7 +34,7 @@ impl Runner {
             debug!("new path to spawn scripts for: {}", path_string);
             let unsubscribe_clone = self.unsubscribe_broadcast_channel.0.clone();
 
-            let scripts_task: JoinHandle<Result<(), SpawnError>> = self.runtime.spawn(async move {
+            let scripts_task: JoinHandle<Result<(), SpawnError>> = tokio::spawn(async move {
                 let script_processes: Vec<_> = scripts
                     .iter()
                     .map(|script| Self::run(&script.file_path, &path, &script.run_delay))

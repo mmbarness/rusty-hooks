@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../scripts.schema.json
+#
+# Example configuration for rusty-hooks
+# Copy this directory to /scripts and customize for your needs
+
+scripts:
+- name: "example-modify-watcher"
+  description: "Example: Run a script when files are modified in a directory"
+  watch_path: /path/to/watch/directory
+  file_name: example_on_modify.sh
+  enabled: false  # Set to true to enable
+  run_delay: 5    # Wait 5 seconds after detecting change
+  event_triggers: ["Modify"]
+  dependencies: []
+
+- name: "example-backup"
+  description: "Example: Automatically backup new files"
+  watch_path: /path/to/documents
+  file_name: example_backup.sh
+  enabled: false
+  run_delay: 0
+  event_triggers: ["Modify"]
+  dependencies: []
+
+- name: "example-processor"
+  description: "Example: Process downloaded files"
+  watch_path: /path/to/downloads
+  file_name: example_process.sh
+  enabled: false
+  run_delay: 10   # Wait 10 seconds to ensure download completes
+  event_triggers: ["Modify"]
+  dependencies: []
