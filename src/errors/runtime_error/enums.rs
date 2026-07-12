@@ -8,4 +8,3 @@ pub enum RuntimeError {
     #[error("error locking onto tokio runtime: `{0}`")]
     LockError(#[from] TryLockError),
 }
-

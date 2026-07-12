@@ -6,4 +6,3 @@ pub enum TimerError {
     #[error("error locking onto timer controller: `{0}`")]
     LockError(#[from] TryLockError),
 }
-

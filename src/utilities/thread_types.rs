@@ -15,4 +15,3 @@ pub type SpawnSender = BroadcastSender<SpawnMessage>;
 pub type UnsubscribeSender = BroadcastSender<PathBuf>;
 pub type SubscribeChannel = Channel<SpawnMessage>;
 pub type UnsubscribeChannel = Channel<PathBuf>;
-

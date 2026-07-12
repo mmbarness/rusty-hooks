@@ -66,6 +66,11 @@
                     "id": "#/properties/run_delay",
                     "type": "integer",
                     "description": "Time (in seconds) to wait after a change is detected before running the script. Optional, defaults to 0."
+                },
+                "trigger_file": {
+                    "id": "#/properties/trigger_file",
+                    "type": "string",
+                    "description": "Optional file name that must be the source of the event before the script runs. Useful for rsync-ready marker files."
                 }
             },
             "required": [

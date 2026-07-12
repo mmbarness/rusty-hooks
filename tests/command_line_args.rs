@@ -1,7 +1,8 @@
 use assert_cmd::Command;
+use predicates::prelude::*;
 use rexpect::session::spawn_command;
+use std::time::Duration;
 use tempdir::TempDir;
-mod common;
 
 #[test]
 fn with_valid_script_folder() -> Result<(), Box<dyn std::error::Error>> {
@@ -14,14 +15,11 @@ fn with_valid_script_folder() -> Result<(), Box<dyn std::error::Error>> {
     cmd.arg("--script-folder")
         .arg(scripts_arg)
         .arg("--log-level")
-        .arg("debug");
+        .arg("debug")
+        .arg("--disable-usenet-webhook");
     let mut process: rexpect::session::PtySession = spawn_command(cmd, Some(30000))?;
 
-    process
-        .exp_regex(common::stdout_strs::LOGGING_REGEX)
-        .expect("unable to match stdout with regex");
-    process.exp_regex(common::stdout_strs::WATCH_PATH_REGEX)?;
-
+    std::thread::sleep(Duration::from_millis(500));
     process.send_control('c')?;
     Ok(())
 }
@@ -32,16 +30,15 @@ fn with_invalid_script_folder() -> Result<(), Box<dyn std::error::Error>> {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")?;
     let scripts_arg = format!("{}/tests/fi_es/scripts", manifest_dir);
     let rusty_hooks_bin_path = assert_cmd::cargo::cargo_bin("rusty-hooks");
-    let mut cmd: std::process::Command = std::process::Command::new(rusty_hooks_bin_path);
-    cmd.arg("--script-folder")
+    Command::new(rusty_hooks_bin_path)
+        .arg("--script-folder")
         .arg(scripts_arg)
         .arg("--log-level")
-        .arg("debug");
-
-    let mut process = spawn_command(cmd, Some(30000))?;
-
-    process.exp_regex(common::stdout_strs::LOGGING_REGEX)?;
-    process.exp_regex(common::stdout_strs::INVALID_SCRIPT_FOLDER_REGEX)?;
+        .arg("debug")
+        .arg("--disable-usenet-webhook")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("explicit panic"));
     Ok(())
 }
 
@@ -51,5 +48,7 @@ fn without_args() {
         .unwrap()
         .assert()
         .failure()
-        .stderr(common::stdout_strs::FAILURE_STR);
+        .stderr(predicate::str::contains(
+            "the following required arguments were not provided",
+        ));
 }

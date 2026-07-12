@@ -7,4 +7,3 @@ pub enum CommandLineError {
     #[error("io error while parsing command line args: `{0}`")]
     IoError(#[from] std::io::Error),
 }
-

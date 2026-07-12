@@ -102,9 +102,31 @@ impl Watcher {
         scripts: &Scripts,
         subscribe_channel: &SubscribeSender,
     ) -> Result<(), SendError<(PathBuf, Vec<Script>)>> {
-        match subscribe_channel.send((event_dir.clone(), scripts.get_by_event(&event.kind))) {
+        let event_scripts = scripts
+            .get_by_event(&event.kind)
+            .into_iter()
+            .filter(|script| Self::script_matches_event(script, event))
+            .collect_vec();
+
+        if event_scripts.is_empty() {
+            debug!("event did not match any script triggers, skipping");
+            return Ok(());
+        }
+
+        match subscribe_channel.send((event_dir.clone(), event_scripts)) {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
+        }
+    }
+
+    fn script_matches_event(script: &Script, event: &Event) -> bool {
+        match &script.trigger_file {
+            Some(trigger_file) => event.paths.iter().any(|path| {
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name == trigger_file)
+            }),
+            None => true,
         }
     }
 

@@ -101,4 +101,3 @@ mod tests {
         assert_eq!(has_been_long_enough, true)
     }
 }
-

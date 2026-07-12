@@ -13,4 +13,3 @@ pub enum ConfigError {
     #[error("Error with strum: `{0}`")]
     ParseIntError(#[from] ParseIntError),
 }
-

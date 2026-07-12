@@ -20,6 +20,7 @@ assert_cmd = "2.0.12"
 assert_fs = "1.0.13"
 async-process = "1.6.0"
 async-trait = "0.1.60"
+axum = "0.6.20"
 chrono = "0.4.24"
 clap = { version = "4.2.0", features = [ "derive" ]}
 directories = "5.0.0"
@@ -40,6 +41,7 @@ oslog = {version = "0.2.0", optional = true}
 predicates = "3.0.4"
 reqwest = "0.11.14"
 rexpect = "0.5.0"
+rusqlite = { version = "0.31.0", features = ["bundled"] }
 serde = { version = "1.0.150", features = ["derive"] }
 serde_json = "1.0.89"
 serde_yaml = "0.9.25"

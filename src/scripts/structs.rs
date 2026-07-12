@@ -23,6 +23,7 @@ pub struct ScriptJSON {
     pub file_name: String,
     pub watch_path: String,
     pub run_delay: u8,
+    pub trigger_file: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -35,6 +36,7 @@ pub struct ScriptBlock {
     pub run_delay: u8,
     pub event_triggers: Vec<String>,
     pub dependencies: Vec<Option<String>>,
+    pub trigger_file: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -50,6 +52,7 @@ pub struct Script {
     pub failed: Option<bool>,
     pub run_delay: u8,
     pub watch_path: PathBuf,
+    pub trigger_file: Option<String>,
 }
 
 impl Utilities for Script {}
@@ -68,6 +71,7 @@ impl From<ScriptJSON> for Script {
             failed: None,
             run_delay: json.run_delay,
             watch_path,
+            trigger_file: json.trigger_file,
         }
     }
 }
@@ -86,6 +90,7 @@ impl From<ScriptBlock> for Script {
             failed: None,
             run_delay: block.run_delay,
             watch_path,
+            trigger_file: block.trigger_file,
         }
     }
 }
@@ -104,6 +109,7 @@ impl From<&ScriptBlock> for Script {
             failed: None,
             run_delay: yaml.run_delay,
             watch_path,
+            trigger_file: yaml.trigger_file.clone(),
         }
     }
 }
@@ -121,6 +127,7 @@ impl From<&ScriptJSON> for Script {
             failed: None,
             run_delay: json.run_delay,
             watch_path,
+            trigger_file: json.trigger_file.clone(),
         }
     }
 }

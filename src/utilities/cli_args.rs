@@ -3,7 +3,7 @@ use crate::errors::command_line_errors::enums::CommandLineError;
 use clap::Parser;
 use itertools::Itertools;
 use log::{debug, LevelFilter};
-use std::path::PathBuf;
+use std::{net::SocketAddr, path::PathBuf};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -14,6 +14,51 @@ pub struct CommandLineArgs {
     /// path to configuration file - required
     #[arg(short, long)]
     pub script_folder: PathBuf,
+    /// address for the usenet webhook server
+    #[arg(long, default_value = "0.0.0.0:8123")]
+    pub usenet_webhook_bind: SocketAddr,
+    /// disable the usenet webhook server
+    #[arg(long, default_value_t = false)]
+    pub disable_usenet_webhook: bool,
+    /// SSH user on the remote download gateway
+    #[arg(long, default_value = "media")]
+    pub download_gateway_user: String,
+    /// Tailscale IP or hostname of the remote download gateway
+    #[arg(long, default_value = "100.107.172.34")]
+    pub download_gateway_host: String,
+    /// SSH key used to pull from the remote download gateway
+    #[arg(long, default_value = "/home/mmbarnes/.ssh/download-gateway_pull")]
+    pub download_gateway_key: PathBuf,
+    /// remote root containing completed SABnzbd category folders
+    #[arg(long, default_value = "/srv/usenet/downloads/complete")]
+    pub usenet_remote_complete_root: PathBuf,
+    /// local staging root used before atomically moving into watched folders
+    #[arg(long, default_value = "/media/wd_red/.usenet-transfer-staging")]
+    pub usenet_staging_root: PathBuf,
+    /// SQLite database used for durable usenet webhook jobs
+    #[arg(
+        long,
+        default_value = "/media/wd_red/.usenet-transfer-staging/rusty-hooks-usenet-queue.sqlite3"
+    )]
+    pub usenet_queue_db: PathBuf,
+    /// maximum number of concurrent category pull workers (clamped to 1..=3)
+    #[arg(long, default_value_t = 2)]
+    pub usenet_max_concurrent_pulls: usize,
+    /// keep completed remote jobs on the download gateway after successful local pull
+    #[arg(long, default_value_t = false)]
+    pub disable_usenet_remote_cleanup: bool,
+    /// append usenet events to this JSONL log
+    #[arg(
+        long,
+        default_value = "/media/wd_red/.usenet-transfer-staging/rusty-hooks-events.jsonl"
+    )]
+    pub usenet_event_log: PathBuf,
+    /// disable the local usenet event JSONL log
+    #[arg(long, default_value_t = false)]
+    pub disable_usenet_event_log: bool,
+    /// optional HTTP endpoint that receives usenet event JSON payloads
+    #[arg(long)]
+    pub usenet_event_webhook_url: Option<String>,
 }
 
 impl Utilities for CommandLineArgs {}

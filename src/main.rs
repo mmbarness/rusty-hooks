@@ -3,6 +3,7 @@ mod errors;
 mod health_reporter;
 mod runner;
 mod scripts;
+mod usenet;
 mod utilities;
 mod watcher;
 
@@ -13,6 +14,7 @@ use log::{debug, error, info};
 use runner::structs::Runner;
 use scripts::structs::Scripts;
 use std::path::{Path, PathBuf};
+use usenet::{events::UsenetEventSink, puller::UsenetPullConfig, webhook};
 use utilities::{
     cli_args::CommandLineArgs,
     thread_types::{SpawnSender, UnsubscribeSender},
@@ -72,6 +74,41 @@ async fn main() {
     let health_reporter = health_reporter::HealthReporter::new().unwrap();
     let report_task = health_reporter.begin_reporting();
 
+    let usenet_event_sink = match UsenetEventSink::new(
+        (!args.disable_usenet_event_log).then(|| args.usenet_event_log.clone()),
+        args.usenet_event_webhook_url.clone(),
+    ) {
+        Ok(sink) => sink,
+        Err(error) => {
+            error!("invalid usenet event sink config: {error:#}");
+            panic!()
+        }
+    };
+
+    let usenet_pull_config = UsenetPullConfig {
+        remote_user: args.download_gateway_user.clone(),
+        remote_host: args.download_gateway_host.clone(),
+        ssh_key_path: args.download_gateway_key.clone(),
+        remote_complete_root: args.usenet_remote_complete_root.clone(),
+        staging_root: args.usenet_staging_root.clone(),
+        remote_cleanup_enabled: !args.disable_usenet_remote_cleanup,
+        event_sink: usenet_event_sink,
+    };
+
+    let usenet_webhook_task = async {
+        if args.disable_usenet_webhook {
+            futures::future::pending::<anyhow::Result<()>>().await
+        } else {
+            webhook::start(
+                args.usenet_webhook_bind,
+                usenet_pull_config,
+                args.usenet_queue_db.clone(),
+                args.usenet_max_concurrent_pulls,
+            )
+            .await
+        }
+    };
+
     utilities::set_process_lockfile::Lockfile::set(None, None).unwrap();
 
     tokio::select! {
@@ -103,6 +140,17 @@ async fn main() {
                 },
                 Err(e) => {
                     error!("runner task failed: {}", e);
+                    info!("cleaning up other tasks and exiting");
+                }
+            }
+        },
+        w = usenet_webhook_task => {
+            match w {
+                Ok(_) => {
+                    info!("usenet webhook task exited, cleaning up other tasks and exiting")
+                },
+                Err(e) => {
+                    error!("usenet webhook task failed: {}", e);
                     info!("cleaning up other tasks and exiting");
                 }
             }
